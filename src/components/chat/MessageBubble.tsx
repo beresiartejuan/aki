@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useState } from "react";
 import { Copy, Check, Brain, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ interface MessageBubbleProps {
   content: string;
   timestamp?: string;
   thinking?: string | null;
+  isStreaming?: boolean;
 }
 
 function parseMarkdownContent(content: string): React.ReactNode {
@@ -135,6 +137,7 @@ export default function MessageBubble({
   content,
   timestamp,
   thinking,
+  isStreaming,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
@@ -247,10 +250,13 @@ export default function MessageBubble({
         {/* Message content */}
         <div className="text-[15px] leading-7 text-foreground pr-10">
           {parseMarkdownContent(content)}
+          {isStreaming && (
+            <span className="inline-block w-2 h-4 bg-primary/60 ml-1 animate-pulse" />
+          )}
         </div>
 
-        {/* Timestamp - appears on hover */}
-        {timestamp && (
+        {/* Timestamp - appears on hover (only when not streaming) */}
+        {timestamp && !isStreaming && (
           <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150 mt-2 block">
             {timestamp}
           </span>
