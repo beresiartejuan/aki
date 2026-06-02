@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { Brain, Paperclip, Target, Mic, ArrowUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,24 @@ import { toast } from "sonner";
 interface ChatInputProps {
   chatId: string;
   onMessageSent: () => void;
+  onOptimisticMessage?: (message: { role: 'user' | 'assistant'; content: string }) => void;
+  onStreamStart?: () => void;
+  onStreamChunk?: (chunk: string) => void;
+  onStreamThinking?: (thinking: string) => void;
+  onStreamEnd?: () => void;
+  disabled?: boolean;
 }
 
-export default function ChatInput({ chatId, onMessageSent }: ChatInputProps) {
+export default function ChatInput({ 
+  chatId, 
+  onMessageSent,
+  onOptimisticMessage,
+  onStreamStart,
+  onStreamChunk,
+  onStreamThinking,
+  onStreamEnd,
+  disabled = false
+}: ChatInputProps) {
   // Toolbar active states
   const [thinkingActive, setThinkingActive] = useState(false);
   const [attachActive, setAttachActive] = useState(false);
@@ -68,57 +84,78 @@ export default function ChatInput({ chatId, onMessageSent }: ChatInputProps) {
   }, [inputValue]);
 
   const handleSend = async () => {
-    if (inputValue.trim() === "" || loading) return;
+    if (inputValue.trim() === "" || loading || disabled) return;
     
+    const messageToSend = inputValue.trim();
     setLoading(true);
     setError(null);
+    setInputValue("");
     
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId,
-          message: inputValue,
-          thinking: thinkingActive,
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send message');
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+    
+    // Add optimistic user message immediately
+    onOptimisticMessage?.({ role: 'user', content: messageToSend });
+    
+    // Signal stream start for assistant
+    onStreamStart?.();
+    
+    const params = new URLSearchParams({
+      chatId,
+      message: messageToSend,
+      thinking: String(thinkingActive),
+    });
+
+    const source = new EventSource(`/api/chat/stream?${params}`);
+    
+    source.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'content') {
+          onStreamChunk?.(data.text);
+        } else if (data.type === 'thinking') {
+          onStreamThinking?.(data.text);
+        } else if (data.type === 'done') {
+          source.close();
+          setLoading(false);
+          onStreamEnd?.();
+          onMessageSent();
+        } else if (data.type === 'error') {
+          source.close();
+          setLoading(false);
+          const errorMessage = data.message || 'Error al obtener respuesta';
+          setError(errorMessage);
+          toast.error(errorMessage);
+          onStreamEnd?.();
+        }
+      } catch (err) {
+        // Ignore parsing errors
       }
-      
-      // Clear input
-      setInputValue("");
-      
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-      
-      // Notify parent to refresh messages
-      onMessageSent();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al enviar';
+    };
+
+    source.onerror = () => {
+      source.close();
+      setLoading(false);
+      const errorMessage = 'Error de conexión';
       setError(errorMessage);
       toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
+      onStreamEnd?.();
+    };
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (inputValue.trim() !== "" && !loading) {
+      if (inputValue.trim() !== "" && !loading && !disabled) {
         handleSend();
       }
     }
   };
 
-  const isSendDisabled = inputValue.trim() === "" || loading;
+  const isSendDisabled = inputValue.trim() === "" || loading || disabled;
 
   // Get button classes based on active state
   const getButtonClasses = (isActive: boolean, isThinking = false) => {
@@ -142,7 +179,7 @@ export default function ChatInput({ chatId, onMessageSent }: ChatInputProps) {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                disabled={loading}
+                disabled={loading || disabled}
                 className="min-h-[44px] max-h-[200px] w-full bg-transparent text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-0 focus:border-none border-0 p-0 shadow-none overflow-y-hidden"
                 style={{ minHeight: '44px' }}
                 rows={1}
@@ -167,7 +204,7 @@ export default function ChatInput({ chatId, onMessageSent }: ChatInputProps) {
                       size="icon"
                       className={getButtonClasses(thinkingActive, true)}
                       onClick={toggleThinking}
-                      disabled={loading}
+                      disabled={loading || disabled}
                     >
                       <Brain className="h-4 w-4" />
                     </Button>
@@ -184,7 +221,7 @@ export default function ChatInput({ chatId, onMessageSent }: ChatInputProps) {
                       size="icon"
                       className={getButtonClasses(attachActive)}
                       onClick={toggleAttach}
-                      disabled={loading}
+                      disabled={loading || disabled}
                     >
                       <Paperclip className="h-4 w-4" />
                     </Button>
@@ -201,7 +238,7 @@ export default function ChatInput({ chatId, onMessageSent }: ChatInputProps) {
                       size="icon"
                       className={getButtonClasses(goalActive)}
                       onClick={toggleGoal}
-                      disabled={loading}
+                      disabled={loading || disabled}
                     >
                       <Target className="h-4 w-4" />
                     </Button>
@@ -218,7 +255,7 @@ export default function ChatInput({ chatId, onMessageSent }: ChatInputProps) {
                       size="icon"
                       className={getButtonClasses(audioActive)}
                       onClick={toggleAudio}
-                      disabled={loading}
+                      disabled={loading || disabled}
                     >
                       <Mic className="h-4 w-4" />
                     </Button>
