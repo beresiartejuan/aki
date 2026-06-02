@@ -6,11 +6,16 @@ import { safeQuery, type Result, ok, err } from '../db/result'
 import { env } from '../env'
 import { DEFAULT_AGENT_ID } from './constants'
 import type { Message } from '../db/schema'
+import { TOOL_DEFINITIONS } from './tools/definitions'
+import { executeTool } from './tools/executor'
+import type { ToolCall } from 'ollama'
 
 // Types for Ollama messages
 interface OllamaMessage {
-  role: 'system' | 'user' | 'assistant'
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
+  tool_calls?: ToolCall[]
+  tool_name?: string
 }
 
 interface AgentConfig {
@@ -161,6 +166,7 @@ export async function runAgentTurn(
 
 /**
  * Streams an agent turn with real-time callback support.
+ * Includes agent loop for tool calling.
  * 
  * @param chatId - The chat ID
  * @param userContent - The user's message content
@@ -172,7 +178,7 @@ export async function streamAgentTurn(
   chatId: string,
   userContent: string,
   thinkingEnabled: boolean,
-  onChunk: (chunk: { content?: string; thinking?: string }) => void
+  onChunk: (chunk: { content?: string; thinking?: string; toolCall?: string }) => void
 ): Promise<Result<{ content: string; thinking: string | null }>> {
   return safeQuery(async () => {
     // Prepare messages using the new helper
@@ -181,42 +187,93 @@ export async function streamAgentTurn(
       throw prepared.error
     }
 
-    const { messages, config } = prepared.data
+    let { messages, config } = prepared.data
+    
+    // Agent loop - max 8 iterations
+    const MAX_ITERATIONS = 8
+    let finalContent = ''
+    let finalThinking: string | null = null
+    
+    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+      // Initialize accumulators for this iteration
+      let fullContent = ''
+      let fullThinking: string | null = null
+      let toolCalls: ToolCall[] = []
 
-    // Initialize accumulators
-    let fullContent = ''
-    let fullThinking: string | null = null
+      // CALL OLLAMA (streaming) with tools
+      const stream = await ollama.chat({
+        model: config.model,
+        messages,
+        think: thinkingEnabled || config.thinkingEnabled,
+        stream: true,
+        tools: TOOL_DEFINITIONS,
+        options: {
+          temperature: config.temperature,
+          num_predict: config.maxTokens
+        }
+      })
 
-    // CALL OLLAMA (streaming)
-    const stream = await ollama.chat({
-      model: config.model,
-      messages,
-      think: thinkingEnabled || config.thinkingEnabled,
-      stream: true,
-      options: {
-        temperature: config.temperature,
-        num_predict: config.maxTokens
+      // Process the stream
+      for await (const chunk of stream) {
+        if (chunk.message.content) {
+          fullContent += chunk.message.content
+          onChunk({ content: chunk.message.content })
+        }
+        if (chunk.message.thinking) {
+          fullThinking = (fullThinking ?? '') + chunk.message.thinking
+          onChunk({ thinking: chunk.message.thinking })
+        }
+        if (chunk.message.tool_calls) {
+          toolCalls = [...toolCalls, ...chunk.message.tool_calls]
+        }
       }
-    })
 
-    // Process the stream
-    for await (const chunk of stream) {
-      if (chunk.message.content) {
-        fullContent += chunk.message.content
-        onChunk({ content: chunk.message.content })
+      // Store final values from this iteration
+      finalContent = fullContent
+      finalThinking = fullThinking
+
+      // Push assistant message to conversation
+      messages.push({
+        role: 'assistant',
+        content: fullContent,
+        tool_calls: toolCalls.length > 0 ? toolCalls : undefined
+      })
+
+      // If no tool calls, we're done
+      if (toolCalls.length === 0) {
+        break
       }
-      if (chunk.message.thinking) {
-        fullThinking = (fullThinking ?? '') + chunk.message.thinking
-        onChunk({ thinking: chunk.message.thinking })
+
+      // Execute tool calls and add results to conversation
+      for (const call of toolCalls) {
+        // Notify frontend of tool execution start
+        onChunk({ 
+          toolCall: `⚙ ${call.function.name}(${JSON.stringify(call.function.arguments)})` 
+        })
+
+        // Execute the tool
+        const result = await executeTool(call)
+
+        // Notify frontend of tool execution completion
+        onChunk({ 
+          toolCall: `✓ ${call.function.name}: ${result.slice(0, 120)}` 
+        })
+
+        // Add tool result to conversation
+        messages.push({
+          role: 'tool',
+          tool_name: call.function.name,
+          content: result
+        })
       }
     }
 
-    // PERSIST ASSISTANT MESSAGE
+    // PERSIST FINAL ASSISTANT MESSAGE (only the final response, not intermediate tool calls)
     const assistantMessageResult = await createMessage({
       chatId,
       role: 'assistant',
-      content: fullContent,
-      thinkingContent: fullThinking,
+      content: finalContent,
+      thinkingContent: finalThinking,
       createdAt: Date.now()
     })
     
@@ -234,6 +291,6 @@ export async function streamAgentTurn(
       }
     }
 
-    return { content: fullContent, thinking: fullThinking }
+    return { content: finalContent, thinking: finalThinking }
   })
 }

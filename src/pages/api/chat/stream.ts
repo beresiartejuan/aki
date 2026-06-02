@@ -7,6 +7,7 @@ export const prerender = false
 interface StreamChunk {
   content?: string
   thinking?: string
+  toolCall?: string
 }
 
 export const GET: APIRoute = async ({ request }) => {
@@ -67,6 +68,7 @@ export const GET: APIRoute = async ({ request }) => {
           (chunk: StreamChunk) => {
             if (chunk.content) send({ type: 'content', text: chunk.content })
             if (chunk.thinking) send({ type: 'thinking', text: chunk.thinking })
+            if (chunk.toolCall) send({ type: 'tool_call', text: chunk.toolCall })
           }
         )
 
