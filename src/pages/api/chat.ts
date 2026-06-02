@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro'
 import { z } from 'zod'
-import { getChatById } from '../../db/queries/chats.js'
-import { runAgentTurn } from '../../lib/agent.js'
+import { getChatById } from '../../db/queries/chats'
+import { runAgentTurn } from '../../lib/agent'
 
 export const prerender = false
 
@@ -22,7 +22,7 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(
         JSON.stringify({
           error: 'Invalid request',
-          issues: parsedBody.error.errors
+          issues: parsedBody.error.issues
         }),
         {
           status: 400,
