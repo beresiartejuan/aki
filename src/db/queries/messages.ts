@@ -1,8 +1,8 @@
 import { eq, asc } from "drizzle-orm";
-import { db } from "../index.js";
-import { messages, insertMessageSchema, selectMessageSchema } from "../schema.js";
-import { safeQuery, type Result } from "../result.js";
-import type { Message, InsertMessage } from "../schema.js";
+import { db } from "../index";
+import { messages, insertMessageSchema, selectMessageSchema } from "../schema";
+import { safeQuery, type Result } from "../result";
+import type { Message, InsertMessage } from "../schema";
 
 /**
  * Selects all messages for a chat ordered by createdAt ASC
