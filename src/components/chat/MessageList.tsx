@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 
 interface Message {
@@ -24,6 +24,7 @@ export interface MessageListHandle {
   startStreaming: () => void;
   addStreamChunk: (chunk: string) => void;
   addStreamThinking: (thinking: string) => void;
+  addStreamToolCall: (toolCall: string) => void;
   stopStreaming: () => void;
 }
 
@@ -53,6 +54,8 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     const [isStreaming, setIsStreaming] = useState(false);
     const [streamingContent, setStreamingContent] = useState("");
     const [streamingThinking, setStreamingThinking] = useState<string | null>(null);
+    const [streamingToolCalls, setStreamingToolCalls] = useState<string[]>([]);
+    const [showToolCalls, setShowToolCalls] = useState(true);
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
@@ -73,6 +76,8 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
         setIsStreaming(true);
         setStreamingContent("");
         setStreamingThinking(null);
+        setStreamingToolCalls([]);
+        setShowToolCalls(true);
       },
       addStreamChunk: (chunk) => {
         setStreamingContent((prev) => prev + chunk);
@@ -80,10 +85,14 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
       addStreamThinking: (thinking) => {
         setStreamingThinking((prev) => (prev ?? "") + thinking);
       },
+      addStreamToolCall: (toolCall) => {
+        setStreamingToolCalls((prev) => [...prev, toolCall]);
+      },
       stopStreaming: () => {
         setIsStreaming(false);
         setStreamingContent("");
         setStreamingThinking(null);
+        setShowToolCalls(false);
       },
     }));
 
@@ -192,6 +201,34 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
           {/* Streaming assistant message */}
           {isStreaming && (
             <div className="mb-6">
+              {/* Tool calls section */}
+              {streamingToolCalls.length > 0 && showToolCalls && (
+                <div className="mb-3">
+                  <button
+                    onClick={() => setShowToolCalls(!showToolCalls)}
+                    className="flex items-center gap-2 w-full text-left text-sm text-muted-foreground hover:text-foreground transition-colors duration-150 p-2 rounded-lg hover:bg-surface"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Usando herramientas</span>
+                    {showToolCalls ? (
+                      <ChevronUp className="h-4 w-4 ml-auto" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 ml-auto" />
+                    )}
+                  </button>
+
+                  {showToolCalls && (
+                    <div className="bg-surface/50 border border-border/40 rounded-lg p-3 mt-1 space-y-1">
+                      {streamingToolCalls.map((toolCall, idx) => (
+                        <div key={idx} className="font-mono text-xs text-muted-foreground">
+                          {toolCall}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="mt-2">
                 <MessageBubble
                   role="assistant"

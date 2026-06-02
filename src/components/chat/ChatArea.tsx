@@ -49,6 +49,10 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
     messageListRef.current?.addStreamThinking(thinking);
   };
 
+  const handleStreamToolCall = (toolCall: string) => {
+    messageListRef.current?.addStreamToolCall(toolCall);
+  };
+
   const handleStreamEnd = () => {
     messageListRef.current?.stopStreaming();
   };
@@ -156,13 +160,14 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
       <MessageList ref={messageListRef} chatId={chatId} refreshKey={refreshKey} />
 
       {/* Chat Input */}
-      <ChatInput 
-        chatId={chatId} 
+      <ChatInput
+        chatId={chatId}
         onMessageSent={handleMessageSent}
         onOptimisticMessage={handleOptimisticMessage}
         onStreamStart={handleStreamStart}
         onStreamChunk={handleStreamChunk}
         onStreamThinking={handleStreamThinking}
+        onStreamToolCall={handleStreamToolCall}
         onStreamEnd={handleStreamEnd}
       />
     </div>

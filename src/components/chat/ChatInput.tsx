@@ -18,17 +18,19 @@ interface ChatInputProps {
   onStreamStart?: () => void;
   onStreamChunk?: (chunk: string) => void;
   onStreamThinking?: (thinking: string) => void;
+  onStreamToolCall?: (toolCall: string) => void;
   onStreamEnd?: () => void;
   disabled?: boolean;
 }
 
-export default function ChatInput({ 
-  chatId, 
+export default function ChatInput({
+  chatId,
   onMessageSent,
   onOptimisticMessage,
   onStreamStart,
   onStreamChunk,
   onStreamThinking,
+  onStreamToolCall,
   onStreamEnd,
   disabled = false
 }: ChatInputProps) {
@@ -118,6 +120,8 @@ export default function ChatInput({
           onStreamChunk?.(data.text);
         } else if (data.type === 'thinking') {
           onStreamThinking?.(data.text);
+        } else if (data.type === 'tool_call') {
+          onStreamToolCall?.(data.text);
         } else if (data.type === 'done') {
           source.close();
           setLoading(false);
