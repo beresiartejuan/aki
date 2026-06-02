@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import * as React from "react";
+import { useState, useEffect, useRef } from "react";
 import { Share2, MoreHorizontal, Pencil, Download, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,15 +10,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import MessageList from "./MessageList";
+import MessageList, { type MessageListHandle } from "./MessageList";
 import ChatInput from "./ChatInput";
 
-const DEFAULT_CHAT_ID = 'default-chat-id'; // This will be replaced when chat selection is wired up
+interface ChatAreaProps {
+  chatId?: string;
+}
 
-export default function ChatArea() {
+export default function ChatArea({ chatId }: ChatAreaProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [chatTitle, setChatTitle] = useState("Nueva conversación");
   const [projectTag, setProjectTag] = useState<string | null>(null);
+  const messageListRef = useRef<MessageListHandle>(null);
 
   const handleTopBarAction = (action: string) => {
     console.log('topbar action:', action);
@@ -27,11 +31,39 @@ export default function ChatArea() {
     setRefreshKey(prev => prev + 1);
   };
 
+  // Optimistic message handler - adds user message to list immediately
+  const handleOptimisticMessage = (message: { role: 'user' | 'assistant'; content: string }) => {
+    messageListRef.current?.addOptimisticMessage(message);
+  };
+
+  // Stream handlers
+  const handleStreamStart = () => {
+    messageListRef.current?.startStreaming();
+  };
+
+  const handleStreamChunk = (chunk: string) => {
+    messageListRef.current?.addStreamChunk(chunk);
+  };
+
+  const handleStreamThinking = (thinking: string) => {
+    messageListRef.current?.addStreamThinking(thinking);
+  };
+
+  const handleStreamEnd = () => {
+    messageListRef.current?.stopStreaming();
+  };
+
   // Fetch chat details
   useEffect(() => {
     const fetchChatDetails = async () => {
+      if (!chatId) {
+        setChatTitle("Nueva conversación");
+        setProjectTag(null);
+        return;
+      }
+      
       try {
-        const response = await fetch(`/api/chats/${DEFAULT_CHAT_ID}`);
+        const response = await fetch(`/api/chats/${chatId}`);
         const data = await response.json();
         
         if (response.ok) {
@@ -44,7 +76,18 @@ export default function ChatArea() {
     };
 
     fetchChatDetails();
-  }, [refreshKey]);
+  }, [chatId, refreshKey]);
+
+  // Don't render if no chat selected
+  if (!chatId) {
+    return (
+      <div className="flex flex-col flex-1 h-full overflow-hidden bg-background items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">Selecciona un chat o crea uno nuevo</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1 h-full overflow-hidden bg-background">
@@ -110,10 +153,18 @@ export default function ChatArea() {
       </div>
 
       {/* Message List */}
-      <MessageList chatId={DEFAULT_CHAT_ID} refreshKey={refreshKey} />
+      <MessageList ref={messageListRef} chatId={chatId} refreshKey={refreshKey} />
 
       {/* Chat Input */}
-      <ChatInput chatId={DEFAULT_CHAT_ID} onMessageSent={handleMessageSent} />
+      <ChatInput 
+        chatId={chatId} 
+        onMessageSent={handleMessageSent}
+        onOptimisticMessage={handleOptimisticMessage}
+        onStreamStart={handleStreamStart}
+        onStreamChunk={handleStreamChunk}
+        onStreamThinking={handleStreamThinking}
+        onStreamEnd={handleStreamEnd}
+      />
     </div>
   );
 }
