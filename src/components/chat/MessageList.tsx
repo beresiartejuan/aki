@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import * as React from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Sparkles } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 
@@ -18,6 +19,14 @@ interface MessageListProps {
   refreshKey: number;
 }
 
+export interface MessageListHandle {
+  addOptimisticMessage: (message: { role: 'user' | 'assistant'; content: string }) => void;
+  startStreaming: () => void;
+  addStreamChunk: (chunk: string) => void;
+  addStreamThinking: (thinking: string) => void;
+  stopStreaming: () => void;
+}
+
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center px-6">
@@ -34,113 +43,169 @@ function EmptyState() {
   );
 }
 
-export default function MessageList({ chatId, refreshKey }: MessageListProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const MessageList = forwardRef<MessageListHandle, MessageListProps>(
+  function MessageList({ chatId, refreshKey }, ref) {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchMessages = async () => {
-      if (!chatId) return;
-      
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const response = await fetch(`/api/chats/${chatId}/messages`);
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch messages');
+    // Streaming state
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [streamingContent, setStreamingContent] = useState("");
+    const [streamingThinking, setStreamingThinking] = useState<string | null>(null);
+
+    // Expose methods via ref
+    useImperativeHandle(ref, () => ({
+      addOptimisticMessage: (msg) => {
+        const optimisticMessage: Message = {
+          id: `temp-${Date.now()}`,
+          chatId,
+          role: msg.role,
+          content: msg.content,
+          thinkingContent: null,
+          inputTokens: null,
+          outputTokens: null,
+          createdAt: Date.now(),
+        };
+        setMessages((prev) => [...prev, optimisticMessage]);
+      },
+      startStreaming: () => {
+        setIsStreaming(true);
+        setStreamingContent("");
+        setStreamingThinking(null);
+      },
+      addStreamChunk: (chunk) => {
+        setStreamingContent((prev) => prev + chunk);
+      },
+      addStreamThinking: (thinking) => {
+        setStreamingThinking((prev) => (prev ?? "") + thinking);
+      },
+      stopStreaming: () => {
+        setIsStreaming(false);
+        setStreamingContent("");
+        setStreamingThinking(null);
+      },
+    }));
+
+    useEffect(() => {
+      const fetchMessages = async () => {
+        if (!chatId) return;
+
+        setLoading(true);
+        setError(null);
+
+        try {
+          const response = await fetch(`/api/chats/${chatId}/messages`);
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch messages');
+          }
+
+          setMessages(data);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Error al cargar mensajes';
+          setError(errorMessage);
+          console.error('Error fetching messages:', err);
+        } finally {
+          setLoading(false);
         }
-        
-        setMessages(data);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Error al cargar mensajes';
-        setError(errorMessage);
-        console.error('Error fetching messages:', err);
-      } finally {
-        setLoading(false);
+      };
+
+      fetchMessages();
+    }, [chatId, refreshKey]);
+
+    // Group messages into conversation turns (user + assistant pairs)
+    const turns: { user?: Message; assistant?: Message }[] = [];
+
+    messages.forEach((msg) => {
+      if (msg.role === "user") {
+        turns.push({ user: msg });
+      } else if (msg.role === "assistant" && turns.length > 0) {
+        turns[turns.length - 1].assistant = msg;
       }
-    };
+    });
 
-    fetchMessages();
-  }, [chatId, refreshKey]);
-
-  // Group messages into conversation turns (user + assistant pairs)
-  const turns: { user?: Message; assistant?: Message }[] = [];
-  
-  messages.forEach((msg) => {
-    if (msg.role === "user") {
-      turns.push({ user: msg });
-    } else if (msg.role === "assistant" && turns.length > 0) {
-      turns[turns.length - 1].assistant = msg;
+    if (loading) {
+      return (
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-8 pb-4">
+          <div className="max-w-3xl mx-auto w-full pb-0">
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-pulse">Cargando mensajes...</div>
+            </div>
+          </div>
+        </div>
+      );
     }
-  });
 
-  if (loading) {
+    if (error) {
+      return (
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-8 pb-4">
+          <div className="max-w-3xl mx-auto w-full pb-0">
+            <div className="flex items-center justify-center h-full">
+              <div className="text-destructive">Error: {error}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (messages.length === 0 && !isStreaming) {
+      return (
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6">
+          <div className="max-w-3xl mx-auto w-full h-full">
+            <EmptyState />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-8 pb-4">
         <div className="max-w-3xl mx-auto w-full pb-0">
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-pulse">Cargando mensajes...</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-8 pb-4">
-        <div className="max-w-3xl mx-auto w-full pb-0">
-          <div className="flex items-center justify-center h-full">
-            <div className="text-destructive">Error: {error}</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (messages.length === 0) {
-    return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-6">
-        <div className="max-w-3xl mx-auto w-full h-full">
-          <EmptyState />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-8 pb-4">
-      <div className="max-w-3xl mx-auto w-full pb-0">
-        {turns.map((turn, index) => (
-          <div key={index} className="mb-6">
+          {turns.map((turn, index) => (
+            <div key={index} className="mb-6">
             {/* User message */}
             {turn.user && (
               <MessageBubble
-                role={turn.user.role}
+                role="user"
                 content={turn.user.content}
                 timestamp={new Date(turn.user.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 thinking={turn.user.thinkingContent}
               />
             )}
-            
+
             {/* Assistant message - close to user message */}
             {turn.assistant && (
               <div className="mt-2">
                 <MessageBubble
-                  role={turn.assistant.role}
+                  role="assistant"
                   content={turn.assistant.content}
                   timestamp={new Date(turn.assistant.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   thinking={turn.assistant.thinkingContent}
                 />
               </div>
             )}
-          </div>
-        ))}
+            </div>
+          ))}
+
+          {/* Streaming assistant message */}
+          {isStreaming && (
+            <div className="mb-6">
+              <div className="mt-2">
+                <MessageBubble
+                  role="assistant"
+                  content={streamingContent}
+                  thinking={streamingThinking}
+                  isStreaming={true}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+);
+
+export default MessageList;
