@@ -1,11 +1,5 @@
 ---
 import "../styles/global.css";
-import { initializeDatabase } from "../lib/init";
-
-// Initialize database on server start
-if (import.meta.env.SSR) {
-  initializeDatabase();
-}
 ---
 
 <!DOCTYPE html>

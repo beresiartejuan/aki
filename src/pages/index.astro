@@ -1,10 +1,8 @@
 ---
 import ChatLayout from "../layouts/ChatLayout.astro";
-import Sidebar from "../components/chat/Sidebar";
-import ChatArea from "../components/chat/ChatArea";
+import ChatApp from "../components/ChatApp";
 ---
 
 <ChatLayout>
-  <Sidebar client:load />
-  <ChatArea client:load />
+  <ChatApp client:only="react" />
 </ChatLayout>
