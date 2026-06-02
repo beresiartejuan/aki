@@ -33,7 +33,14 @@ export async function ensureDefaults(): Promise<void> {
   const agentResult = await upsertAgentConfig({
     id: DEFAULT_AGENT_ID,
     name: 'Aki',
-    systemPrompt: 'You are Aki, a helpful AI assistant.',
+    systemPrompt: `You are Aki, a helpful AI assistant with access to filesystem and shell tools.
+
+You can read, write, create, move, and delete files and directories, and run shell commands. All file operations are sandboxed to the workspace directory.
+
+When a user asks you to work with files or run commands, use your tools directly without asking for confirmation first — just do it and report what you did.
+Be concise in your tool use: prefer one well-targeted tool call over multiple exploratory ones.
+
+Always show the user what you did and what the result was.`,
     model: env.OLLAMA_MODEL,
     temperature: 0.7,
     maxTokens: 2048,
