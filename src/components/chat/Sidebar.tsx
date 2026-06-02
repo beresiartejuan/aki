@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useState, useEffect } from "react";
 import { 
   MoreVertical, 
@@ -20,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface ChatItem {
   id: string;
@@ -35,16 +37,17 @@ interface ChatItem {
 interface SidebarProps {
   onSelectChat?: (chatId: string) => void;
   activeChatId?: string;
+  onNewChat?: (chatId: string) => void;
 }
 
-export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId }: SidebarProps) {
+export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, onNewChat }: SidebarProps) {
   const [chats, setChats] = useState<ChatItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [internalActiveChatId, setInternalActiveChatId] = useState<string>('default-chat-id');
+  const [internalActiveChatId, setInternalActiveChatId] = useState<string | undefined>(undefined);
   const [isCreating, setIsCreating] = useState(false);
 
-  const activeChatId = propActiveChatId || internalActiveChatId;
+  const activeChatId = propActiveChatId ?? internalActiveChatId;
 
   // Fetch chats from API
   useEffect(() => {
@@ -61,6 +64,11 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId }
         }
         
         setChats(data);
+        
+        // Select first chat if none selected
+        if (!activeChatId && data.length > 0) {
+          handleChatClick(data[0].id);
+        }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Error al cargar chats';
         setError(errorMessage);
@@ -78,11 +86,33 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId }
     onSelectChat?.(chatId);
   };
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     setIsCreating(true);
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Nueva conversación' })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create chat');
+      }
+      
+      // Add new chat to list and select it
+      setChats(prev => [data, ...prev]);
+      handleChatClick(data.id);
+      onNewChat?.(data.id);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear chat';
+      toast.error(errorMessage);
+      console.error('Error creating chat:', err);
+    } finally {
       setIsCreating(false);
-    }, 800);
+    }
   };
 
   const handleMenuAction = (action: string, chatId: string) => {
