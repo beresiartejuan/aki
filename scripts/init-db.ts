@@ -1,4 +1,4 @@
-import { initializeDatabase } from '../src/lib/init.js'
+import { initializeDatabase } from '../src/lib/init'
 
 // Run the initialization
 initializeDatabase().then(() => {
