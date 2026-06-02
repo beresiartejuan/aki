@@ -17,6 +17,10 @@ pnpm-debug.log*
 .env
 .env.production
 
+# database
+/data/
+/drizzle/
+
 # macOS-specific files
 .DS_Store
 
