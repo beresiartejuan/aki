@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getChatById } from '../../../db/queries/chats';
 import { streamAgentTurn } from '../../../lib/agent';
+import { DEFAULT_USER_ID } from '../../../lib/constants';
 
 export const prerender = false;
 
@@ -56,7 +57,7 @@ export const GET: APIRoute = async ({ request }) => {
       };
 
       try {
-        const result = await streamAgentTurn(chatId, message, thinking, (chunk: StreamChunk) => {
+        const result = await streamAgentTurn(chatId, DEFAULT_USER_ID, message, thinking, (chunk: StreamChunk) => {
           if (chunk.content) send({ type: 'content', text: chunk.content });
           if (chunk.thinking) send({ type: 'thinking', text: chunk.thinking });
           if (chunk.toolCall) send({ type: 'tool_call', text: chunk.toolCall });

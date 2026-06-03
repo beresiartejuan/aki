@@ -1,14 +1,17 @@
 import type { ToolCall } from 'ollama';
 import { getChatById, updateChatTitle } from '../db/queries/chats';
 import { getAgentConfig } from '../db/queries/config';
-import { createMessage, getMessagesByChatId } from '../db/queries/messages';
+import { createMessage } from '../db/queries/messages';
 import { err, ok, type Result, safeQuery } from '../db/result';
 import type { Message } from '../db/schema';
 import { env } from '../env';
-import { DEFAULT_AGENT_ID } from './constants';
+import { DEFAULT_AGENT_ID, DEFAULT_USER_ID } from './constants';
 import { ollama } from './ollama';
 import { TOOL_DEFINITIONS } from './tools/definitions';
 import { executeTool } from './tools/executor';
+import { buildContext } from './context';
+import { summarizeChat } from './summarizer';
+import { extractMemory } from './memory-extractor';
 
 // Types for Ollama messages
 interface OllamaMessage {
@@ -16,90 +19,6 @@ interface OllamaMessage {
   content: string;
   tool_calls?: ToolCall[];
   tool_name?: string;
-}
-
-interface AgentConfig {
-  systemPrompt: string;
-  model: string;
-  temperature: number;
-  maxTokens: number;
-  thinkingEnabled: boolean;
-}
-
-interface PreparedMessages {
-  messages: OllamaMessage[];
-  config: AgentConfig;
-}
-
-/**
- * Prepares the message array for Ollama by loading history and config.
- * Returns the prepared messages and config.
- */
-export async function prepareAgentMessages(
-  chatId: string,
-  userContent: string,
-  thinkingEnabled: boolean
-): Promise<Result<PreparedMessages>> {
-  return safeQuery(async () => {
-    // 1. LOAD HISTORY
-    const historyResult = await getMessagesByChatId(chatId);
-    if (!historyResult.ok) {
-      throw new Error(`Failed to load history: ${historyResult.error.message}`);
-    }
-
-    // Filter out system messages first, then take last 10
-    const filteredMessages = historyResult.data
-      .filter((msg) => msg.role !== 'system')
-      .slice(-10)
-      .map((msg) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content,
-      }));
-
-    // 2. LOAD AGENT CONFIG
-    const agentResult = await getAgentConfig(DEFAULT_AGENT_ID);
-    let agentConfig: AgentConfig;
-
-    if (!agentResult.ok || !agentResult.data) {
-      // Use fallback values if agent config not found
-      agentConfig = {
-        systemPrompt: 'You are Aki, a helpful AI assistant.',
-        model: env.OLLAMA_MODEL,
-        temperature: 0.7,
-        maxTokens: 2048,
-        thinkingEnabled: false,
-      };
-    } else {
-      agentConfig = {
-        systemPrompt: agentResult.data.systemPrompt,
-        model: agentResult.data.model,
-        temperature: agentResult.data.temperature,
-        maxTokens: agentResult.data.maxTokens,
-        thinkingEnabled: agentResult.data.thinkingEnabled === 1,
-      };
-    }
-
-    // 3. BUILD MESSAGE ARRAY for Ollama
-    const messages: OllamaMessage[] = [
-      { role: 'system', content: agentConfig.systemPrompt },
-      ...filteredMessages,
-      { role: 'user', content: userContent },
-    ];
-
-    // 4. PERSIST USER MESSAGE
-    const userMessageResult = await createMessage({
-      chatId,
-      role: 'user',
-      content: userContent,
-      createdAt: Date.now(),
-    });
-
-    if (!userMessageResult.ok) {
-      throw new Error(`Failed to persist user message: ${userMessageResult.error.message}`);
-    }
-
-    return { messages, config: agentConfig };
-  });
 }
 
 /**
@@ -111,24 +30,63 @@ export async function runAgentTurn(
   userContent: string,
   thinkingEnabled: boolean
 ): Promise<Result<{ content: string; thinking: string | null }>> {
+  // For backwards compatibility, use default user
+  return runAgentTurnWithUser(chatId, DEFAULT_USER_ID, userContent, thinkingEnabled);
+}
+
+/**
+ * Runs a complete agent turn (non-streaming) with user context.
+ */
+export async function runAgentTurnWithUser(
+  chatId: string,
+  userId: string,
+  userContent: string,
+  thinkingEnabled: boolean
+): Promise<Result<{ content: string; thinking: string | null }>> {
   return safeQuery(async () => {
-    // Prepare messages using the new helper
-    const prepared = await prepareAgentMessages(chatId, userContent, thinkingEnabled);
-    if (!prepared.ok) {
-      throw prepared.error;
+    // Build context using the new context builder
+    const contextResult = await buildContext(chatId, userId);
+    if (!contextResult.ok) {
+      throw contextResult.error;
     }
 
-    const { messages, config } = prepared.data;
+    const { systemPrompt, messages: recentMessages, shouldSummarize } = contextResult.data;
+
+    // PERSIST USER MESSAGE first
+    const userMessageResult = await createMessage({
+      chatId,
+      role: 'user',
+      content: userContent,
+      createdAt: Date.now(),
+    });
+
+    if (!userMessageResult.ok) {
+      throw new Error(`Failed to persist user message: ${userMessageResult.error.message}`);
+    }
+
+    // Build message array for Ollama
+    const messages: OllamaMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...recentMessages,
+      { role: 'user', content: userContent },
+    ];
+
+    // Load config for model and options
+    const agentResult = await getAgentConfig(DEFAULT_AGENT_ID);
+    const model = agentResult.ok && agentResult.data ? agentResult.data.model : env.OLLAMA_MODEL;
+    const temperature = agentResult.ok && agentResult.data ? agentResult.data.temperature : 0.7;
+    const maxTokens = agentResult.ok && agentResult.data ? agentResult.data.maxTokens : 2048;
+    const thinkingConfig = agentResult.ok && agentResult.data ? agentResult.data.thinkingEnabled === 1 : false;
 
     // CALL OLLAMA (non-streaming)
     const response = await ollama.chat({
-      model: config.model,
+      model,
       messages,
-      think: thinkingEnabled || config.thinkingEnabled,
+      think: thinkingEnabled || thinkingConfig,
       stream: false,
       options: {
-        temperature: config.temperature,
-        num_predict: config.maxTokens,
+        temperature,
+        num_predict: maxTokens,
       },
     });
 
@@ -162,6 +120,18 @@ export async function runAgentTurn(
       }
     }
 
+    // Fire-and-forget summarization if needed
+    if (shouldSummarize) {
+      summarizeChat(chatId, userId).catch((err) =>
+        console.error('[summarizer] failed:', err)
+      );
+    }
+
+    // Fire-and-forget memory extraction
+    extractMemory(chatId, userId, userContent, content).catch((err) =>
+      console.error('[memory-extractor] failed:', err)
+    );
+
     return { content, thinking };
   });
 }
@@ -171,6 +141,7 @@ export async function runAgentTurn(
  * Includes agent loop for tool calling.
  *
  * @param chatId - The chat ID
+ * @param userId - The user ID
  * @param userContent - The user's message content
  * @param thinkingEnabled - Whether to enable thinking mode
  * @param onChunk - Callback for each chunk received from the stream
@@ -178,18 +149,49 @@ export async function runAgentTurn(
  */
 export async function streamAgentTurn(
   chatId: string,
+  userId: string,
   userContent: string,
   thinkingEnabled: boolean,
   onChunk: (chunk: { content?: string; thinking?: string; toolCall?: string }) => void
 ): Promise<Result<{ content: string; thinking: string | null }>> {
   return safeQuery(async () => {
-    // Prepare messages using the new helper
-    const prepared = await prepareAgentMessages(chatId, userContent, thinkingEnabled);
-    if (!prepared.ok) {
-      throw prepared.error;
+    // Build context using the new context builder
+    const contextResult = await buildContext(chatId, userId);
+    if (!contextResult.ok) {
+      throw contextResult.error;
     }
 
-    const { messages, config } = prepared.data;
+    const {
+      systemPrompt,
+      messages: recentMessages,
+      shouldSummarize,
+    } = contextResult.data;
+
+    // PERSIST USER MESSAGE first
+    const userMessageResult = await createMessage({
+      chatId,
+      role: 'user',
+      content: userContent,
+      createdAt: Date.now(),
+    });
+
+    if (!userMessageResult.ok) {
+      throw new Error(`Failed to persist user message: ${userMessageResult.error.message}`);
+    }
+
+    // Build message array for Ollama
+    const messages: OllamaMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...recentMessages,
+      { role: 'user', content: userContent },
+    ];
+
+    // Load config for model and options
+    const agentResult = await getAgentConfig(DEFAULT_AGENT_ID);
+    const model = agentResult.ok && agentResult.data ? agentResult.data.model : env.OLLAMA_MODEL;
+    const temperature = agentResult.ok && agentResult.data ? agentResult.data.temperature : 0.7;
+    const maxTokens = agentResult.ok && agentResult.data ? agentResult.data.maxTokens : 2048;
+    const thinkingConfig = agentResult.ok && agentResult.data ? agentResult.data.thinkingEnabled === 1 : false;
 
     // Agent loop - max 8 iterations
     const MAX_ITERATIONS = 8;
@@ -204,14 +206,14 @@ export async function streamAgentTurn(
 
       // CALL OLLAMA (streaming) with tools
       const stream = await ollama.chat({
-        model: config.model,
+        model,
         messages,
-        think: thinkingEnabled || config.thinkingEnabled,
+        think: thinkingEnabled || thinkingConfig,
         stream: true,
         tools: TOOL_DEFINITIONS,
         options: {
-          temperature: config.temperature,
-          num_predict: config.maxTokens,
+          temperature,
+          num_predict: maxTokens,
         },
       });
 
@@ -294,6 +296,18 @@ export async function streamAgentTurn(
         await updateChatTitle(chatId, title);
       }
     }
+
+    // Fire-and-forget summarization if needed
+    if (shouldSummarize) {
+      summarizeChat(chatId, userId).catch((err) =>
+        console.error('[summarizer] failed:', err)
+      );
+    }
+
+    // Fire-and-forget memory extraction
+    extractMemory(chatId, userId, userContent, finalContent).catch((err) =>
+      console.error('[memory-extractor] failed:', err)
+    );
 
     return { content: finalContent, thinking: finalThinking };
   });
