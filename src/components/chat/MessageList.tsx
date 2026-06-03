@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Settings, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Settings } from 'lucide-react';
 import * as React from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import MessageBubble from './MessageBubble';

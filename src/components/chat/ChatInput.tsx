@@ -1,4 +1,4 @@
-import { ArrowUp, Brain, Loader2, Mic, Paperclip, Target } from 'lucide-react';
+import { ArrowUp, Brain, Loader2 } from 'lucide-react';
 import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -9,13 +9,21 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 interface ChatInputProps {
   chatId: string;
   onMessageSent: () => void;
-  onOptimisticMessage?: (message: { role: 'user' | 'assistant'; content: string }) => void;
+  onOptimisticMessage?: (message: { role: 'user' | 'assistant'; content: string; attachments?: Attachment[] }) => void;
   onStreamStart?: () => void;
   onStreamChunk?: (chunk: string) => void;
   onStreamThinking?: (thinking: string) => void;
   onStreamToolCall?: (toolCall: string) => void;
   onStreamEnd?: () => void;
   disabled?: boolean;
+}
+
+interface Attachment {
+  id: string;
+  filename: string;
+  originalName: string;
+  fileType: string;
+  fileSize: number;
 }
 
 export default function ChatInput({
@@ -31,37 +39,55 @@ export default function ChatInput({
 }: ChatInputProps) {
   // Toolbar active states
   const [thinkingActive, setThinkingActive] = useState(false);
-  const [attachActive, setAttachActive] = useState(false);
-  const [goalActive, setGoalActive] = useState(false);
-  const [audioActive, setAudioActive] = useState(false);
 
   // Input state
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Loading state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // File attachment state
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
   // Toggle handlers with mutual exclusivity
   const toggleThinking = () => setThinkingActive((prev) => !prev);
 
-  const toggleAttach = () => {
-    setAttachActive((prev) => {
-      const newState = !prev;
-      if (newState) setAudioActive(false); // Mutual exclusion
-      return newState;
+  // File handling
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Validate file sizes (6MB limit)
+    const MAX_SIZE = 6 * 1024 * 1024;
+    const validFiles = files.filter((file) => {
+      if (file.size > MAX_SIZE) {
+        toast.error(`${file.name} excede el límite de 6MB`);
+        return false;
+      }
+      return true;
     });
+
+    if (validFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
-  const toggleGoal = () => setGoalActive((prev) => !prev);
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
-  const toggleAudio = () => {
-    setAudioActive((prev) => {
-      const newState = !prev;
-      if (newState) setAttachActive(false); // Mutual exclusion
-      return newState;
-    });
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   // Auto-resize textarea
@@ -106,6 +132,13 @@ export default function ChatInput({
     });
 
     const source = new EventSource(`/api/chat/stream?${params}`);
+    const abortController = new AbortController();
+
+    const cleanup = () => {
+      source.close();
+    };
+
+    abortController.signal.addEventListener('abort', cleanup);
 
     source.onmessage = (event) => {
       try {
@@ -142,6 +175,11 @@ export default function ChatInput({
       setError(errorMessage);
       toast.error(errorMessage);
       onStreamEnd?.();
+    };
+
+    // Cleanup on component unmount or chat change
+    return () => {
+      abortController.abort();
     };
   };
 
@@ -210,57 +248,6 @@ export default function ChatInput({
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     <p>Thinking</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={getButtonClasses(attachActive)}
-                      onClick={toggleAttach}
-                      disabled={loading || disabled}
-                    >
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Adjuntar</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={getButtonClasses(goalActive)}
-                      onClick={toggleGoal}
-                      disabled={loading || disabled}
-                    >
-                      <Target className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Objetivo</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={getButtonClasses(audioActive)}
-                      onClick={toggleAudio}
-                      disabled={loading || disabled}
-                    >
-                      <Mic className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Audio</p>
                   </TooltipContent>
                 </Tooltip>
               </div>

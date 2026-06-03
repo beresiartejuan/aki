@@ -1,14 +1,11 @@
 import {
   Copy,
-  Keyboard,
   Loader2,
   LogOut,
   MessageSquare,
   MoreHorizontal,
-  MoreVertical,
   Pencil,
   Plus,
-  Settings,
   Trash2,
 } from 'lucide-react';
 import * as React from 'react';
@@ -40,6 +37,13 @@ interface SidebarProps {
   onNewChat?: (chatId: string) => void;
 }
 
+interface User {
+  id: string;
+  username: string;
+  name: string;
+  plan: string;
+}
+
 export default function Sidebar({
   onSelectChat,
   activeChatId: propActiveChatId,
@@ -48,10 +52,49 @@ export default function Sidebar({
   const [chats, setChats] = useState<ChatItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [internalActiveChatId, setInternalActiveChatId] = useState<string | undefined>(undefined);
   const [isCreating, setIsCreating] = useState(false);
 
   const activeChatId = propActiveChatId ?? internalActiveChatId;
+
+  // Fetch user info
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+        }
+      } catch (err) {
+        console.error('Error fetching user:', err);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        toast.success('Sesión cerrada');
+        window.location.href = '/login';
+      } else {
+        toast.error('Error al cerrar sesión');
+      }
+    } catch (err) {
+      toast.error('Error de conexión');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   // Fetch chats from API
   useEffect(() => {
@@ -119,12 +162,133 @@ export default function Sidebar({
     }
   };
 
-  const handleMenuAction = (action: string, chatId: string) => {
-    console.log(action, chatId);
+  const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
+  const [duplicatingChatId, setDuplicatingChatId] = useState<string | null>(null);
+
+  const handleMenuAction = async (action: string, chatId: string) => {
+    if (action === 'delete') {
+      const chatToDelete = chats.find((c) => c.id === chatId);
+      if (!chatToDelete) return;
+
+      // Confirm before delete
+      if (!confirm(`¿Eliminar "${chatToDelete.title}"? Esta acción no se puede deshacer.`)) {
+        return;
+      }
+
+      setDeletingChatId(chatId);
+
+      try {
+        const response = await fetch(`/api/chats/${chatId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to delete chat');
+        }
+
+        // Remove from state
+        setChats((prev) => prev.filter((c) => c.id !== chatId));
+
+        // If deleted chat was active, clear selection
+        if (activeChatId === chatId) {
+          setInternalActiveChatId(undefined);
+          onSelectChat?.('');
+        }
+
+        toast.success('Chat eliminado');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al eliminar chat';
+        toast.error(errorMessage);
+        console.error('Error deleting chat:', err);
+      } finally {
+        setDeletingChatId(null);
+      }
+    } else if (action === 'rename') {
+      const chat = chats.find((c) => c.id === chatId);
+      if (chat) {
+        setEditingChatId(chatId);
+        setEditingTitle(chat.title);
+      }
+    } else if (action === 'duplicate') {
+      setDuplicatingChatId(chatId);
+
+      try {
+        const response = await fetch(`/api/chats/${chatId}/duplicate`, {
+          method: 'POST',
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to duplicate chat');
+        }
+
+        const duplicatedChat = await response.json();
+
+        // Add duplicated chat to list
+        setChats((prev) => [duplicatedChat, ...prev]);
+
+        toast.success('Chat duplicado');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al duplicar chat';
+        toast.error(errorMessage);
+        console.error('Error duplicating chat:', err);
+      } finally {
+        setDuplicatingChatId(null);
+      }
+    }
   };
 
-  const handleHeaderMenuAction = (action: string) => {
-    console.log('Header menu:', action);
+  const handleRenameSubmit = async (chatId: string) => {
+    const trimmedTitle = editingTitle.trim();
+    if (!trimmedTitle) {
+      setEditingChatId(null);
+      return;
+    }
+
+    setRenamingChatId(chatId);
+
+    try {
+      const response = await fetch(`/api/chats/${chatId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: trimmedTitle }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to rename chat');
+      }
+
+      const updatedChat = await response.json();
+
+      // Update local state
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === chatId
+            ? { ...c, title: updatedChat.title, updatedAt: updatedChat.updatedAt }
+            : c
+        )
+      );
+
+      toast.success('Chat renombrado');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al renombrar chat';
+      toast.error(errorMessage);
+      console.error('Error renaming chat:', err);
+    } finally {
+      setRenamingChatId(null);
+      setEditingChatId(null);
+      setEditingTitle('');
+    }
+  };
+
+  const handleRenameCancel = () => {
+    setEditingChatId(null);
+    setEditingTitle('');
   };
 
   const formatTimeAgo = (timestamp: number) => {
@@ -147,37 +311,14 @@ export default function Sidebar({
     <aside className="flex flex-col h-full w-64 shrink-0 bg-surface border-r border-border">
       {/* Header */}
       <div className="shrink-0 p-4 border-b border-border">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-              <span className="text-black font-bold text-sm">A</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
+                <span className="text-black font-bold text-sm">A</span>
+              </div>
+              <span className="font-semibold text-foreground">Aki</span>
             </div>
-            <span className="font-semibold text-foreground">Aki</span>
           </div>
-
-          {/* Header dropdown menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" side="bottom" className="w-48">
-              <DropdownMenuItem onClick={() => handleHeaderMenuAction('settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Configuración</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleHeaderMenuAction('shortcuts')}>
-                <Keyboard className="mr-2 h-4 w-4" />
-                <span>Atajos de teclado</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleHeaderMenuAction('logout')}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Cerrar sesión</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         {/* New chat button with loading state */}
@@ -224,9 +365,28 @@ export default function Sidebar({
                 <MessageSquare className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-foreground text-sm truncate">
-                      {chat.title}
-                    </span>
+                    {editingChatId === chat.id ? (
+                      <input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onBlur={() => handleRenameSubmit(chat.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleRenameSubmit(chat.id);
+                          } else if (e.key === 'Escape') {
+                            handleRenameCancel();
+                          }
+                        }}
+                        autoFocus
+                        disabled={renamingChatId === chat.id}
+                        className="font-medium text-foreground text-sm bg-transparent border-none outline-none focus:ring-0 w-full px-0 py-0 disabled:opacity-50"
+                      />
+                    ) : (
+                      <span className="font-medium text-foreground text-sm truncate">
+                        {chat.title}
+                      </span>
+                    )}
                     <span className="text-xs text-muted-foreground shrink-0">
                       {formatTimeAgo(chat.updatedAt)}
                     </span>
@@ -277,11 +437,22 @@ export default function Sidebar({
       <div className="shrink-0 border-t border-border p-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-foreground">Usuario</p>
-            <p className="text-xs text-muted-foreground">Free Plan</p>
+            <p className="text-sm font-medium text-foreground">{user?.name || 'Usuario'}</p>
+            <p className="text-xs text-muted-foreground capitalize">{user?.plan || 'Free'} Plan</p>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Settings className="h-4 w-4 text-muted-foreground" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title="Cerrar sesión"
+          >
+            {isLoggingOut ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogOut className="h-4 w-4 text-muted-foreground" />
+            )}
           </Button>
         </div>
       </div>
