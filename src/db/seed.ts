@@ -3,32 +3,32 @@
  * Ensures default user and agent config exist on startup.
  */
 
-import { upsertUser, upsertAgentConfig } from './queries/config'
-import { DEFAULT_USER_ID, DEFAULT_AGENT_ID } from '../lib/constants'
-import { env } from '../env'
+import { env } from '../env';
+import { DEFAULT_AGENT_ID, DEFAULT_USER_ID } from '../lib/constants';
+import { upsertAgentConfig, upsertUser } from './queries/config';
 
 /**
  * Ensures the default user and agent config exist in the database.
  * Uses upsert operations so it's safe to call multiple times.
  */
 export async function ensureDefaults(): Promise<void> {
-  console.log('[seed] Ensuring default user and agent config exist...')
-  
+  console.log('[seed] Ensuring default user and agent config exist...');
+
   // Ensure default user exists
   const userResult = await upsertUser({
     id: DEFAULT_USER_ID,
     name: 'Usuario',
     plan: 'free',
     createdAt: Date.now(),
-  })
-  
+  });
+
   if (!userResult.ok) {
-    console.error('[seed] Failed to upsert default user:', userResult.error)
-    throw userResult.error
+    console.error('[seed] Failed to upsert default user:', userResult.error);
+    throw userResult.error;
   }
-  
-  console.log('[seed] Default user ensured:', userResult.data.id)
-  
+
+  console.log('[seed] Default user ensured:', userResult.data.id);
+
   // Ensure default agent config exists
   const agentResult = await upsertAgentConfig({
     id: DEFAULT_AGENT_ID,
@@ -47,13 +47,13 @@ Always show the user what you did and what the result was.`,
     thinkingEnabled: 0, // SQLite uses 0/1 for boolean
     createdAt: Date.now(),
     updatedAt: Date.now(),
-  })
-  
+  });
+
   if (!agentResult.ok) {
-    console.error('[seed] Failed to upsert agent config:', agentResult.error)
-    throw agentResult.error
+    console.error('[seed] Failed to upsert agent config:', agentResult.error);
+    throw agentResult.error;
   }
-  
-  console.log('[seed] Default agent config ensured:', agentResult.data.id)
-  console.log('[seed] Database seed complete')
+
+  console.log('[seed] Default agent config ensured:', agentResult.data.id);
+  console.log('[seed] Database seed complete');
 }

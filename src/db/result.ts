@@ -25,8 +25,10 @@ export function err<E = Error>(error: E): Err<E> {
  * Returns a Promise<Result<T>> with proper error handling
  */
 export function safeQuery<T>(callback: () => Promise<T>): Promise<Result<T>> {
-  return callback().then(ok).catch((error: unknown) => {
-    console.error("[db error]", error);
-    return err(error as Error);
-  });
+  return callback()
+    .then(ok)
+    .catch((error: unknown) => {
+      console.error('[db error]', error);
+      return err(error as Error);
+    });
 }

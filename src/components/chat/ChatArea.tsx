@@ -1,17 +1,17 @@
-import * as React from "react";
-import { useState, useEffect, useRef } from "react";
-import { Share2, MoreHorizontal, Pencil, Download, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Download, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
+import * as React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import MessageList, { type MessageListHandle } from "./MessageList";
-import ChatInput from "./ChatInput";
+} from '@/components/ui/dropdown-menu';
+import ChatInput from './ChatInput';
+import MessageList, { type MessageListHandle } from './MessageList';
 
 interface ChatAreaProps {
   chatId?: string;
@@ -19,7 +19,7 @@ interface ChatAreaProps {
 
 export default function ChatArea({ chatId }: ChatAreaProps) {
   const [refreshKey, setRefreshKey] = useState(0);
-  const [chatTitle, setChatTitle] = useState("Nueva conversación");
+  const [chatTitle, setChatTitle] = useState('Nueva conversación');
   const [projectTag, setProjectTag] = useState<string | null>(null);
   const messageListRef = useRef<MessageListHandle>(null);
 
@@ -28,7 +28,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
   };
 
   const handleMessageSent = () => {
-    setRefreshKey(prev => prev + 1);
+    setRefreshKey((prev) => prev + 1);
   };
 
   // Optimistic message handler - adds user message to list immediately
@@ -61,15 +61,15 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
   useEffect(() => {
     const fetchChatDetails = async () => {
       if (!chatId) {
-        setChatTitle("Nueva conversación");
+        setChatTitle('Nueva conversación');
         setProjectTag(null);
         return;
       }
-      
+
       try {
         const response = await fetch(`/api/chats/${chatId}`);
         const data = await response.json();
-        
+
         if (response.ok) {
           setChatTitle(data.title);
           setProjectTag(data.projectTag || null);
@@ -98,12 +98,10 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
       {/* Top Bar */}
       <div className="shrink-0 h-14 flex items-center justify-between px-6 border-b border-border shadow-[0_1px_0_0_#222222]">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-foreground">
-            {chatTitle}
-          </h1>
+          <h1 className="text-lg font-bold text-foreground">{chatTitle}</h1>
           {projectTag && (
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
               className="bg-primary/15 text-primary border-primary/30 text-xs font-medium rounded-full px-2.5 py-0.5"
             >
               {projectTag}
@@ -111,20 +109,20 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors duration-150"
           >
             <Share2 className="h-4 w-4" />
           </Button>
-          
+
           {/* Top bar dropdown menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors duration-150"
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -144,7 +142,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
                 <span>Compartir</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => handleTopBarAction('delete')}
                 className="text-destructive focus:text-destructive"
               >

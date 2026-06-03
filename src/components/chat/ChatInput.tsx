@@ -1,15 +1,10 @@
-import * as React from "react";
-import { useState, useEffect, useRef } from "react";
-import { Brain, Paperclip, Target, Mic, ArrowUp, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { toast } from "sonner";
+import { ArrowUp, Brain, Loader2, Mic, Paperclip, Target } from 'lucide-react';
+import type * as React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ChatInputProps {
   chatId: string;
@@ -32,37 +27,37 @@ export default function ChatInput({
   onStreamThinking,
   onStreamToolCall,
   onStreamEnd,
-  disabled = false
+  disabled = false,
 }: ChatInputProps) {
   // Toolbar active states
   const [thinkingActive, setThinkingActive] = useState(false);
   const [attachActive, setAttachActive] = useState(false);
   const [goalActive, setGoalActive] = useState(false);
   const [audioActive, setAudioActive] = useState(false);
-  
+
   // Input state
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   // Loading state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Toggle handlers with mutual exclusivity
-  const toggleThinking = () => setThinkingActive(prev => !prev);
-  
+  const toggleThinking = () => setThinkingActive((prev) => !prev);
+
   const toggleAttach = () => {
-    setAttachActive(prev => {
+    setAttachActive((prev) => {
       const newState = !prev;
       if (newState) setAudioActive(false); // Mutual exclusion
       return newState;
     });
   };
-  
-  const toggleGoal = () => setGoalActive(prev => !prev);
-  
+
+  const toggleGoal = () => setGoalActive((prev) => !prev);
+
   const toggleAudio = () => {
-    setAudioActive(prev => {
+    setAudioActive((prev) => {
       const newState = !prev;
       if (newState) setAttachActive(false); // Mutual exclusion
       return newState;
@@ -75,7 +70,7 @@ export default function ChatInput({
       textareaRef.current.style.height = 'auto';
       const newHeight = Math.min(textareaRef.current.scrollHeight, 200);
       textareaRef.current.style.height = `${newHeight}px`;
-      
+
       // Enable/disable scroll based on height
       if (textareaRef.current.scrollHeight > 200) {
         textareaRef.current.style.overflowY = 'auto';
@@ -86,24 +81,24 @@ export default function ChatInput({
   }, [inputValue]);
 
   const handleSend = async () => {
-    if (inputValue.trim() === "" || loading || disabled) return;
-    
+    if (inputValue.trim() === '' || loading || disabled) return;
+
     const messageToSend = inputValue.trim();
     setLoading(true);
     setError(null);
-    setInputValue("");
-    
+    setInputValue('');
+
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    
+
     // Add optimistic user message immediately
     onOptimisticMessage?.({ role: 'user', content: messageToSend });
-    
+
     // Signal stream start for assistant
     onStreamStart?.();
-    
+
     const params = new URLSearchParams({
       chatId,
       message: messageToSend,
@@ -111,7 +106,7 @@ export default function ChatInput({
     });
 
     const source = new EventSource(`/api/chat/stream?${params}`);
-    
+
     source.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -153,20 +148,20 @@ export default function ChatInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (inputValue.trim() !== "" && !loading && !disabled) {
+      if (inputValue.trim() !== '' && !loading && !disabled) {
         handleSend();
       }
     }
   };
 
-  const isSendDisabled = inputValue.trim() === "" || loading || disabled;
+  const isSendDisabled = inputValue.trim() === '' || loading || disabled;
 
   // Get button classes based on active state
   const getButtonClasses = (isActive: boolean, isThinking = false) => {
     if (isActive) {
       return `h-8 w-8 rounded-lg bg-primary/20 text-primary border border-primary/40 ${isThinking ? 'ring-1 ring-primary/50 animate-pulse' : ''}`;
     }
-    return "h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-150";
+    return 'h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-150';
   };
 
   return (
@@ -189,7 +184,7 @@ export default function ChatInput({
                 rows={1}
               />
             </div>
-            
+
             {/* Error message */}
             {error && (
               <div className="px-4">
@@ -280,8 +275,8 @@ export default function ChatInput({
                   disabled={isSendDisabled}
                   onClick={handleSend}
                   className={`h-8 w-8 rounded-full transition-all duration-150 ${
-                    isSendDisabled 
-                      ? 'opacity-40 cursor-not-allowed bg-primary/50 text-black' 
+                    isSendDisabled
+                      ? 'opacity-40 cursor-not-allowed bg-primary/50 text-black'
                       : 'bg-primary hover:bg-primary/90 text-black hover:scale-105'
                   }`}
                 >

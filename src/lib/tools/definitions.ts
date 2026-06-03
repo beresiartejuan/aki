@@ -3,7 +3,7 @@
  * Each tool follows the Ollama format for function calling.
  */
 
-import type { Tool } from 'ollama'
+import type { Tool } from 'ollama';
 
 export const TOOL_DEFINITIONS: Tool[] = [
   {
@@ -158,7 +158,8 @@ export const TOOL_DEFINITIONS: Tool[] = [
     type: 'function',
     function: {
       name: 'run_command',
-      description: 'Execute a shell command in the workspace. Use for running scripts, package managers, git, etc.',
+      description:
+        'Execute a shell command in the workspace. Use for running scripts, package managers, git, etc.',
       parameters: {
         type: 'object',
         required: ['command'],
@@ -175,12 +176,12 @@ export const TOOL_DEFINITIONS: Tool[] = [
       },
     },
   },
-]
+];
 
 /**
  * Union type of all available tool names.
  */
-export type ToolName = 
+export type ToolName =
   | 'read_file'
   | 'write_file'
   | 'list_directory'
@@ -189,4 +190,4 @@ export type ToolName =
   | 'delete_directory'
   | 'move_file'
   | 'search_files'
-  | 'run_command'
+  | 'run_command';

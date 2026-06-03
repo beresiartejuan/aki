@@ -1,51 +1,45 @@
-import type { APIRoute } from 'astro'
-import { getMessagesByChatId } from '../../../../db/queries/messages'
+import type { APIRoute } from 'astro';
+import { getMessagesByChatId } from '../../../../db/queries/messages';
 
-export const prerender = false
+export const prerender = false;
 
 export const GET: APIRoute = async ({ params }) => {
   try {
-    const { id } = params
-    
+    const { id } = params;
+
     if (!id) {
-      return new Response(
-        JSON.stringify({ error: 'Chat ID is required' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
+      return new Response(JSON.stringify({ error: 'Chat ID is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
-    
-    const result = await getMessagesByChatId(id)
-    
+
+    const result = await getMessagesByChatId(id);
+
     if (!result.ok) {
       return new Response(
         JSON.stringify({ error: 'Database error', detail: result.error.message }),
         {
           status: 500,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
         }
-      )
+      );
     }
-    
-    return new Response(
-      JSON.stringify(result.data),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+
+    return new Response(JSON.stringify(result.data), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     return new Response(
       JSON.stringify({
         error: 'Internal server error',
-        detail: error instanceof Error ? error.message : 'Unknown error'
+        detail: error instanceof Error ? error.message : 'Unknown error',
       }),
       {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       }
-    )
+    );
   }
-}
+};

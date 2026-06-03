@@ -1,7 +1,7 @@
-import * as React from "react";
-import { useState } from "react";
-import Sidebar from './Sidebar';
+import * as React from 'react';
+import { useState } from 'react';
 import ChatArea from './ChatArea';
+import Sidebar from './Sidebar';
 
 export default function ChatApp() {
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);

@@ -1,11 +1,11 @@
-import * as path from 'path'
-import { isBlockedCommand } from './security'
+import * as path from 'path';
+import { isBlockedCommand } from './security';
 
 /**
  * Root directory for all sandboxed operations.
  * Can be configured via WORKSPACE_ROOT environment variable.
  */
-export const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT ?? process.cwd()
+export const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT ?? process.cwd();
 
 /**
  * Validates that a path is inside the workspace sandbox.
@@ -14,11 +14,11 @@ export const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT ?? process.cwd()
  * @throws Error if the path is outside the sandbox
  */
 export function assertInsideSandbox(targetPath: string): void {
-  const resolved = path.resolve(targetPath)
-  const workspaceRootResolved = path.resolve(WORKSPACE_ROOT)
-  
+  const resolved = path.resolve(targetPath);
+  const workspaceRootResolved = path.resolve(WORKSPACE_ROOT);
+
   if (!resolved.startsWith(workspaceRootResolved)) {
-    throw new Error(`Path outside sandbox: ${resolved}`)
+    throw new Error(`Path outside sandbox: ${resolved}`);
   }
 }
 
@@ -30,6 +30,6 @@ export function assertInsideSandbox(targetPath: string): void {
  */
 export function assertSafeCommand(command: string): void {
   if (isBlockedCommand(command)) {
-    throw new Error(`Blocked command: ${command}`)
+    throw new Error(`Blocked command: ${command}`);
   }
 }

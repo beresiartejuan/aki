@@ -1,27 +1,27 @@
-import * as React from "react";
-import { useState, useEffect } from "react";
-import { 
-  MoreVertical, 
-  Settings, 
-  MessageSquare, 
-  Plus, 
-  MoreHorizontal,
-  Pencil,
+import {
   Copy,
-  Trash2,
-  Loader2,
   Keyboard,
-  LogOut
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+  Loader2,
+  LogOut,
+  MessageSquare,
+  MoreHorizontal,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
+} from 'lucide-react';
+import * as React from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+} from '@/components/ui/dropdown-menu';
 
 interface ChatItem {
   id: string;
@@ -40,7 +40,11 @@ interface SidebarProps {
   onNewChat?: (chatId: string) => void;
 }
 
-export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, onNewChat }: SidebarProps) {
+export default function Sidebar({
+  onSelectChat,
+  activeChatId: propActiveChatId,
+  onNewChat,
+}: SidebarProps) {
   const [chats, setChats] = useState<ChatItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,17 +58,17 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, 
     const fetchChats = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         const response = await fetch('/api/chats');
         const data = await response.json();
-        
+
         if (!response.ok) {
           throw new Error(data.error || 'Failed to fetch chats');
         }
-        
+
         setChats(data);
-        
+
         // Select first chat if none selected
         if (!activeChatId && data.length > 0) {
           handleChatClick(data[0].id);
@@ -88,22 +92,22 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, 
 
   const handleNewChat = async () => {
     setIsCreating(true);
-    
+
     try {
       const response = await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Nueva conversación' })
+        body: JSON.stringify({ title: 'Nueva conversación' }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to create chat');
       }
-      
+
       // Add new chat to list and select it
-      setChats(prev => [data, ...prev]);
+      setChats((prev) => [data, ...prev]);
       handleChatClick(data.id);
       onNewChat?.(data.id);
     } catch (err) {
@@ -129,9 +133,9 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, 
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-    
+
     if (minutes < 60) {
-      return minutes < 1 ? "ahora" : `${minutes}m`;
+      return minutes < 1 ? 'ahora' : `${minutes}m`;
     } else if (hours < 24) {
       return `${hours}h`;
     } else {
@@ -150,7 +154,7 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, 
             </div>
             <span className="font-semibold text-foreground">Aki</span>
           </div>
-          
+
           {/* Header dropdown menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -175,21 +179,17 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, 
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        
+
         {/* New chat button with loading state */}
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className={`w-full gap-2 border-border text-foreground hover:border-primary hover:text-primary transition-colors duration-150 ${
             isCreating ? 'pointer-events-none opacity-70' : ''
           }`}
           onClick={handleNewChat}
           disabled={isCreating}
         >
-          {isCreating ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
+          {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           Nuevo chat
         </Button>
       </div>
@@ -217,8 +217,8 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, 
                 onClick={() => handleChatClick(chat.id)}
                 className={`group flex items-start gap-3 py-3 cursor-pointer transition-colors duration-150 ${
                   isActive
-                    ? "bg-surface-hover border-l-2 border-l-primary pl-[calc(theme(spacing.4)-2px)] pr-4"
-                    : "border-l-2 border-l-transparent hover:bg-surface-hover px-4"
+                    ? 'bg-surface-hover border-l-2 border-l-primary pl-[calc(theme(spacing.4)-2px)] pr-4'
+                    : 'border-l-2 border-l-transparent hover:bg-surface-hover px-4'
                 }`}
               >
                 <MessageSquare className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
@@ -232,12 +232,12 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, 
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {chat.projectTag || "Sin etiqueta"}
+                    {chat.projectTag || 'Sin etiqueta'}
                   </p>
                 </div>
-                
+
                 {/* Chat item dropdown menu */}
-                <div 
+                <div
                   className="opacity-0 group-hover:opacity-100 transition-opacity duration-150"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -257,7 +257,7 @@ export default function Sidebar({ onSelectChat, activeChatId: propActiveChatId, 
                         <span>Duplicar</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => handleMenuAction('delete', chat.id)}
                         className="text-destructive focus:text-destructive"
                       >

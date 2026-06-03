@@ -1,8 +1,8 @@
-import { eq, asc } from "drizzle-orm";
-import { db } from "../index";
-import { messages, insertMessageSchema, selectMessageSchema } from "../schema";
-import { safeQuery, type Result } from "../result";
-import type { Message, InsertMessage } from "../schema";
+import { asc, eq } from 'drizzle-orm';
+import { db } from '../index';
+import { type Result, safeQuery } from '../result';
+import type { InsertMessage, Message } from '../schema';
+import { insertMessageSchema, messages, selectMessageSchema } from '../schema';
 
 /**
  * Selects all messages for a chat ordered by createdAt ASC
@@ -14,7 +14,7 @@ export function getMessagesByChatId(chatId: string): Promise<Result<Message[]>> 
       .from(messages)
       .where(eq(messages.chatId, chatId))
       .orderBy(asc(messages.createdAt));
-    
+
     // Validate results with Zod schema
     return result.map((message) => selectMessageSchema.parse(message));
   });
@@ -27,12 +27,9 @@ export function createMessage(data: InsertMessage): Promise<Result<Message>> {
   return safeQuery(async () => {
     // Validate input with Zod schema
     const validatedData = insertMessageSchema.parse(data);
-    
-    const result = await db
-      .insert(messages)
-      .values(validatedData)
-      .returning();
-    
+
+    const result = await db.insert(messages).values(validatedData).returning();
+
     // Validate result with Zod schema
     return selectMessageSchema.parse(result[0]);
   });
@@ -43,10 +40,8 @@ export function createMessage(data: InsertMessage): Promise<Result<Message>> {
  */
 export function deleteMessagesByChat(chatId: string): Promise<Result<{ deleted: boolean }>> {
   return safeQuery(async () => {
-    await db
-      .delete(messages)
-      .where(eq(messages.chatId, chatId));
-    
+    await db.delete(messages).where(eq(messages.chatId, chatId));
+
     return { deleted: true };
   });
 }

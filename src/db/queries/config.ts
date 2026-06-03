@@ -1,31 +1,27 @@
-import { eq } from "drizzle-orm";
-import { db } from "../index";
-import { 
-  agentConfig, 
-  users, 
-  insertAgentConfigSchema, 
-  selectAgentConfigSchema,
+import { eq } from 'drizzle-orm';
+import { db } from '../index';
+import { type Result, safeQuery } from '../result';
+import type { AgentConfig, InsertAgentConfig, InsertUser, User } from '../schema';
+import {
+  agentConfig,
+  insertAgentConfigSchema,
   insertUserSchema,
-  selectUserSchema
-} from "../schema";
-import { safeQuery, type Result } from "../result";
-import type { AgentConfig, InsertAgentConfig, User, InsertUser } from "../schema";
+  selectAgentConfigSchema,
+  selectUserSchema,
+  users,
+} from '../schema';
 
 /**
  * Get agent configuration by ID
  */
 export function getAgentConfig(agentId: string): Promise<Result<AgentConfig | undefined>> {
   return safeQuery(async () => {
-    const result = await db
-      .select()
-      .from(agentConfig)
-      .where(eq(agentConfig.id, agentId))
-      .limit(1);
-    
+    const result = await db.select().from(agentConfig).where(eq(agentConfig.id, agentId)).limit(1);
+
     if (result.length === 0) {
       return undefined;
     }
-    
+
     // Validate result with Zod schema
     return selectAgentConfigSchema.parse(result[0]);
   });
@@ -38,7 +34,7 @@ export function upsertAgentConfig(data: InsertAgentConfig): Promise<Result<Agent
   return safeQuery(async () => {
     // Validate input with Zod schema
     const validatedData = insertAgentConfigSchema.parse(data);
-    
+
     const result = await db
       .insert(agentConfig)
       .values(validatedData)
@@ -46,11 +42,11 @@ export function upsertAgentConfig(data: InsertAgentConfig): Promise<Result<Agent
         target: agentConfig.id,
         set: {
           ...validatedData,
-          updatedAt: Date.now()
-        }
+          updatedAt: Date.now(),
+        },
       })
       .returning();
-    
+
     // Validate result with Zod schema
     return selectAgentConfigSchema.parse(result[0]);
   });
@@ -61,16 +57,12 @@ export function upsertAgentConfig(data: InsertAgentConfig): Promise<Result<Agent
  */
 export function getUser(userId: string): Promise<Result<User | undefined>> {
   return safeQuery(async () => {
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-    
+    const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
     if (result.length === 0) {
       return undefined;
     }
-    
+
     // Validate result with Zod schema
     return selectUserSchema.parse(result[0]);
   });
@@ -83,16 +75,16 @@ export function upsertUser(data: InsertUser): Promise<Result<User>> {
   return safeQuery(async () => {
     // Validate input with Zod schema
     const validatedData = insertUserSchema.parse(data);
-    
+
     const result = await db
       .insert(users)
       .values(validatedData)
       .onConflictDoUpdate({
         target: users.id,
-        set: validatedData
+        set: validatedData,
       })
       .returning();
-    
+
     // Validate result with Zod schema
     return selectUserSchema.parse(result[0]);
   });

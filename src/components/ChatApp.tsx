@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import Sidebar from './chat/Sidebar';
 import ChatArea from './chat/ChatArea';
+import Sidebar from './chat/Sidebar';
 
 export default function ChatApp() {
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);

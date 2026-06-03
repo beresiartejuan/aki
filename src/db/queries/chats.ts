@@ -1,8 +1,8 @@
-import { eq, desc } from "drizzle-orm";
-import { db } from "../index";
-import { chats, insertChatSchema, selectChatSchema } from "../schema";
-import { safeQuery, type Result } from "../result";
-import type { Chat, InsertChat } from "../schema";
+import { desc, eq } from 'drizzle-orm';
+import { db } from '../index';
+import { type Result, safeQuery } from '../result';
+import type { Chat, InsertChat } from '../schema';
+import { chats, insertChatSchema, selectChatSchema } from '../schema';
 
 /**
  * Selects all chats for a user ordered by updatedAt DESC
@@ -14,7 +14,7 @@ export function getAllChats(userId: string): Promise<Result<Chat[]>> {
       .from(chats)
       .where(eq(chats.userId, userId))
       .orderBy(desc(chats.updatedAt));
-    
+
     // Validate results with Zod schema
     return result.map((chat) => selectChatSchema.parse(chat));
   });
@@ -25,16 +25,12 @@ export function getAllChats(userId: string): Promise<Result<Chat[]>> {
  */
 export function getChatById(chatId: string): Promise<Result<Chat | undefined>> {
   return safeQuery(async () => {
-    const result = await db
-      .select()
-      .from(chats)
-      .where(eq(chats.id, chatId))
-      .limit(1);
-    
+    const result = await db.select().from(chats).where(eq(chats.id, chatId)).limit(1);
+
     if (result.length === 0) {
       return undefined;
     }
-    
+
     // Validate result with Zod schema
     return selectChatSchema.parse(result[0]);
   });
@@ -47,12 +43,9 @@ export function createChat(data: InsertChat): Promise<Result<Chat>> {
   return safeQuery(async () => {
     // Validate input with Zod schema
     const validatedData = insertChatSchema.parse(data);
-    
-    const result = await db
-      .insert(chats)
-      .values(validatedData)
-      .returning();
-    
+
+    const result = await db.insert(chats).values(validatedData).returning();
+
     // Validate result with Zod schema
     return selectChatSchema.parse(result[0]);
   });
@@ -68,7 +61,7 @@ export function updateChatTitle(chatId: string, title: string): Promise<Result<C
       .set({ title, updatedAt: Date.now() })
       .where(eq(chats.id, chatId))
       .returning();
-    
+
     // Validate result with Zod schema
     return selectChatSchema.parse(result[0]);
   });
@@ -79,10 +72,8 @@ export function updateChatTitle(chatId: string, title: string): Promise<Result<C
  */
 export function deleteChat(chatId: string): Promise<Result<{ deleted: boolean }>> {
   return safeQuery(async () => {
-    await db
-      .delete(chats)
-      .where(eq(chats.id, chatId));
-    
+    await db.delete(chats).where(eq(chats.id, chatId));
+
     return { deleted: true };
   });
 }

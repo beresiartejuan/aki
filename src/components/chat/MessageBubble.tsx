@@ -1,10 +1,10 @@
-import * as React from "react";
-import { useState } from "react";
-import { Copy, Check, Brain, ChevronDown, ChevronUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Brain, Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import type * as React from 'react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 interface MessageBubbleProps {
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   timestamp?: string;
   thinking?: string | null;
@@ -19,7 +19,7 @@ function parseMarkdownContent(content: string): React.ReactNode {
 
   lines.forEach((line, index) => {
     const trimmed = line.trim();
-    
+
     if (trimmed === '') {
       if (currentList) {
         result.push(
@@ -52,7 +52,11 @@ function parseMarkdownContent(content: string): React.ReactNode {
       currentList = null;
     }
 
-    if (trimmed.startsWith('**') && trimmed.endsWith('**') && !trimmed.slice(2, -2).includes('**')) {
+    if (
+      trimmed.startsWith('**') &&
+      trimmed.endsWith('**') &&
+      !trimmed.slice(2, -2).includes('**')
+    ) {
       const text = trimmed.slice(2, -2);
       result.push(
         <h3 key={`h-${index}`} className="text-white font-semibold mt-4 mb-2 text-[15px]">
@@ -92,7 +96,10 @@ function parseInlineFormatting(text: string): React.ReactNode {
         parts.push(parseBoldText(remaining.slice(0, codeMatch.index), key++));
       }
       parts.push(
-        <code key={key++} className="bg-surface px-1.5 py-0.5 rounded text-sm font-mono text-orange-400">
+        <code
+          key={key++}
+          className="bg-surface px-1.5 py-0.5 rounded text-sm font-mono text-orange-400"
+        >
           {codeMatch[1]}
         </code>
       );
@@ -152,17 +159,15 @@ export default function MessageBubble({
     }
   };
 
-  const copyButtonClasses = copied 
-    ? "h-6 w-6 text-primary" 
-    : "h-6 w-6 text-muted-foreground hover:text-foreground";
+  const copyButtonClasses = copied
+    ? 'h-6 w-6 text-primary'
+    : 'h-6 w-6 text-muted-foreground hover:text-foreground';
 
-  if (role === "user") {
+  if (role === 'user') {
     return (
       <div className="group relative mb-2 max-w-2xl w-fit">
         {/* User message - soft card with proper left border accent */}
-        <div 
-          className="bg-surface rounded-2xl rounded-tl-none border-l-[3px] border-primary px-4 py-3 pr-10"
-        >
+        <div className="bg-surface rounded-2xl rounded-tl-none border-l-[3px] border-primary px-4 py-3 pr-10">
           {/* Copy button - appears on hover, positioned inside the card */}
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             <Button
@@ -172,18 +177,14 @@ export default function MessageBubble({
               onClick={handleCopy}
               title="Copiar mensaje"
             >
-              {copied ? (
-                <Check className="h-3 w-3 text-green-500" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
+              {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
             </Button>
           </div>
 
           <div className="text-[15px] leading-7 text-foreground">
             {parseMarkdownContent(content)}
           </div>
-          
+
           {/* Timestamp - appears on hover */}
           {timestamp && (
             <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150 mt-2 block">
@@ -221,7 +222,7 @@ export default function MessageBubble({
                 <ChevronDown className="h-4 w-4 ml-auto" />
               )}
             </button>
-            
+
             {showThinking && (
               <div className="bg-surface/50 border border-border/50 rounded-lg p-3 text-sm text-muted-foreground font-mono mt-1">
                 {thinking}

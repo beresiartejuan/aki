@@ -23,7 +23,7 @@ export const BLOCKED_PATTERNS = [
   'node -e',
   'eval ',
   'exec ',
-] as const
+] as const;
 
 /**
  * Validates that a shell command is safe to execute.
@@ -32,13 +32,13 @@ export const BLOCKED_PATTERNS = [
  * @returns true if command is blocked, false if safe
  */
 export function isBlockedCommand(command: string): boolean {
-  const normalizedCommand = command.toLowerCase()
-  
+  const normalizedCommand = command.toLowerCase();
+
   for (const pattern of BLOCKED_PATTERNS) {
     if (normalizedCommand.includes(pattern.toLowerCase())) {
-      return true
+      return true;
     }
   }
-  
-  return false
+
+  return false;
 }
