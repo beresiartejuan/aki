@@ -1,4 +1,4 @@
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import type { z } from 'zod';
 
@@ -96,3 +96,57 @@ export const insertMessageSchema = createInsertSchema(messages);
 export const selectMessageSchema = createSelectSchema(messages);
 export type Message = z.infer<typeof selectMessageSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+// Chat summaries table - stores rolling summary of conversation
+export const chatSummaries = sqliteTable('chat_summaries', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  chatId: text('chat_id')
+    .notNull()
+    .unique()
+    .references(() => chats.id, { onDelete: 'cascade' }),
+  summary: text('summary').notNull(),
+  messagesCovered: integer('messages_covered').notNull(),
+  createdAt: integer('created_at')
+    .notNull()
+    .$defaultFn(() => Date.now()),
+  updatedAt: integer('updated_at')
+    .notNull()
+    .$defaultFn(() => Date.now()),
+});
+
+// Agent memory table - stores structured facts across all conversations
+export const agentMemory = sqliteTable('agent_memory', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  category: text('category').notNull(), // "preference" | "fact" | "decision" | "goal" | "context"
+  key: text('key').notNull(),
+  value: text('value').notNull(),
+  confidence: real('confidence').notNull().default(1.0),
+  lastSeenAt: integer('last_seen_at')
+    .notNull()
+    .$defaultFn(() => Date.now()),
+  createdAt: integer('created_at')
+    .notNull()
+    .$defaultFn(() => Date.now()),
+}, (table) => ({
+  // Unique index on (userId, key) for upsert operations
+  userKeyIdx: uniqueIndex('user_key_idx').on(table.userId, table.key),
+}));
+
+// Zod schemas for chatSummaries
+export const insertChatSummarySchema = createInsertSchema(chatSummaries);
+export const selectChatSummarySchema = createSelectSchema(chatSummaries);
+export type ChatSummary = z.infer<typeof selectChatSummarySchema>;
+export type InsertChatSummary = z.infer<typeof insertChatSummarySchema>;
+
+// Zod schemas for agentMemory
+export const insertAgentMemorySchema = createInsertSchema(agentMemory);
+export const selectAgentMemorySchema = createSelectSchema(agentMemory);
+export type AgentMemory = z.infer<typeof selectAgentMemorySchema>;
+export type InsertAgentMemory = z.infer<typeof insertAgentMemorySchema>;
