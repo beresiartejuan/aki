@@ -2,6 +2,7 @@ import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ShikiHighlighter, { rehypeInlineCodeProperty } from 'react-shiki';
+import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import type { ComponentProps } from 'react';
 
@@ -155,7 +156,7 @@ export function MarkdownRenderer({ content, streaming = false }: MarkdownRendere
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeInlineCodeProperty]}
+      rehypePlugins={[rehypeInlineCodeProperty, rehypeSanitize]}
       components={components}
       // Pass streaming state to code blocks via data attribute
       {...{ 'data-streaming': String(streaming) }}
