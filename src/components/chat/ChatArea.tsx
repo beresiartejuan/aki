@@ -1,6 +1,7 @@
 import { Download, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,16 +16,115 @@ import MessageList, { type MessageListHandle } from './MessageList';
 
 interface ChatAreaProps {
   chatId?: string;
+  onChatDeleted?: (chatId: string) => void;
 }
 
-export default function ChatArea({ chatId }: ChatAreaProps) {
+export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [chatTitle, setChatTitle] = useState('Nueva conversación');
   const [projectTag, setProjectTag] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const messageListRef = useRef<MessageListHandle>(null);
 
-  const handleTopBarAction = (action: string) => {
-    console.log('topbar action:', action);
+  const handleTopBarAction = async (action: string) => {
+    if (!chatId) return;
+
+    if (action === 'delete') {
+      if (!confirm(`¿Eliminar "${chatTitle}"? Esta acción no se puede deshacer.`)) {
+        return;
+      }
+
+      setIsDeleting(true);
+      try {
+        const response = await fetch(`/api/chats/${chatId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to delete chat');
+        }
+
+        toast.success('Chat eliminado');
+        onChatDeleted?.(chatId);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al eliminar chat';
+        toast.error(errorMessage);
+        console.error('Error deleting chat:', err);
+      } finally {
+        setIsDeleting(false);
+      }
+    } else if (action === 'rename') {
+      const newTitle = prompt('Nuevo título:', chatTitle);
+      if (!newTitle || newTitle.trim() === '' || newTitle.trim() === chatTitle) return;
+
+      setIsRenaming(true);
+      try {
+        const response = await fetch(`/api/chats/${chatId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle.trim() }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to rename chat');
+        }
+
+        const updatedChat = await response.json();
+        setChatTitle(updatedChat.title);
+        toast.success('Chat renombrado');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al renombrar chat';
+        toast.error(errorMessage);
+        console.error('Error renaming chat:', err);
+      } finally {
+        setIsRenaming(false);
+      }
+    } else if (action === 'export') {
+      setIsExporting(true);
+      try {
+        // Get messages
+        const response = await fetch(`/api/chats/${chatId}/messages`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch messages');
+        }
+
+        const messages = await response.json();
+
+        // Create markdown export
+        const exportContent = messages
+          .map((msg: { role: string; content: string }) => {
+            const role = msg.role === 'user' ? '**Usuario**' : '**Asistente**';
+            return `${role}:\n${msg.content}\n`;
+          })
+          .join('\n---\n\n');
+
+        // Create and download file
+        const blob = new Blob([`# ${chatTitle}\n\n${exportContent}`], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${chatTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.success('Conversación exportada');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al exportar';
+        toast.error(errorMessage);
+        console.error('Error exporting chat:', err);
+      } finally {
+        setIsExporting(false);
+      }
+    } else if (action === 'share') {
+      // TODO: Implement share functionality
+      toast.info('Compartir - Próximamente');
+    }
   };
 
   const handleMessageSent = () => {

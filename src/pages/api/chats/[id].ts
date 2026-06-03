@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { deleteChat, getChatById } from '../../../db/queries/chats';
+import { deleteChat, getChatById, updateChatTitle } from '../../../db/queries/chats';
 
 export const prerender = false;
 
@@ -75,6 +75,57 @@ export const DELETE: APIRoute = async ({ params }) => {
     }
 
     return new Response(JSON.stringify({ deleted: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        error: 'Internal server error',
+        detail: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+};
+
+export const PATCH: APIRoute = async ({ params, request }) => {
+  try {
+    const { id } = params;
+
+    if (!id) {
+      return new Response(JSON.stringify({ error: 'Chat ID is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await request.json();
+    const { title } = body;
+
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+      return new Response(JSON.stringify({ error: 'Title is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const result = await updateChatTitle(id, title.trim());
+
+    if (!result.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Database error', detail: result.error.message }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    return new Response(JSON.stringify(result.data), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

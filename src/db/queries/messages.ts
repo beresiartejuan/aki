@@ -21,6 +21,21 @@ export function getMessagesByChatId(chatId: string): Promise<Result<Message[]>> 
 }
 
 /**
+ * Get a single message by ID
+ */
+export function getMessageById(messageId: string): Promise<Result<Message | undefined>> {
+  return safeQuery(async () => {
+    const result = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+
+    if (result.length === 0) {
+      return undefined;
+    }
+
+    return selectMessageSchema.parse(result[0]);
+  });
+}
+
+/**
  * Validates with insertMessageSchema, inserts, returns created row
  */
 export function createMessage(data: InsertMessage): Promise<Result<Message>> {

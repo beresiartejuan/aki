@@ -77,3 +77,19 @@ export function deleteChat(chatId: string): Promise<Result<{ deleted: boolean }>
     return { deleted: true };
   });
 }
+
+/**
+ * Updates pinned status, returns updated row
+ */
+export function updateChatPinned(chatId: string, isPinned: number): Promise<Result<Chat>> {
+  return safeQuery(async () => {
+    const result = await db
+      .update(chats)
+      .set({ isPinned, updatedAt: Date.now() })
+      .where(eq(chats.id, chatId))
+      .returning();
+
+    // Validate result with Zod schema
+    return selectChatSchema.parse(result[0]);
+  });
+}
