@@ -10,7 +10,7 @@ import {
   readFile,
   searchFiles,
   writeFile,
-} from '../filesystem';
+} from '../fs';
 
 // Mock fs module
 vi.mock('fs/promises', () => {

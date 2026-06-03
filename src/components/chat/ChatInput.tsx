@@ -1,29 +1,22 @@
 import { ArrowUp, Brain, Loader2 } from 'lucide-react';
 import type * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAutoResizeTextarea } from './hooks/useAutoResizeTextarea';
 
 interface ChatInputProps {
   chatId: string;
   onMessageSent: () => void;
-  onOptimisticMessage?: (message: { role: 'user' | 'assistant'; content: string; attachments?: Attachment[] }) => void;
+  onOptimisticMessage?: (message: { role: 'user' | 'assistant'; content: string }) => void;
   onStreamStart?: () => void;
   onStreamChunk?: (chunk: string) => void;
   onStreamThinking?: (thinking: string) => void;
   onStreamToolCall?: (toolCall: string) => void;
   onStreamEnd?: () => void;
   disabled?: boolean;
-}
-
-interface Attachment {
-  id: string;
-  filename: string;
-  originalName: string;
-  fileType: string;
-  fileSize: number;
 }
 
 export default function ChatInput({
@@ -37,74 +30,14 @@ export default function ChatInput({
   onStreamEnd,
   disabled = false,
 }: ChatInputProps) {
-  // Toolbar active states
   const [thinkingActive, setThinkingActive] = useState(false);
-
-  // Input state
   const [inputValue, setInputValue] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Loading state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { textareaRef, resetHeight } = useAutoResizeTextarea(inputValue);
 
-  // File attachment state
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-
-  // Toggle handlers with mutual exclusivity
   const toggleThinking = () => setThinkingActive((prev) => !prev);
-
-  // File handling
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    // Validate file sizes (6MB limit)
-    const MAX_SIZE = 6 * 1024 * 1024;
-    const validFiles = files.filter((file) => {
-      if (file.size > MAX_SIZE) {
-        toast.error(`${file.name} excede el límite de 6MB`);
-        return false;
-      }
-      return true;
-    });
-
-    if (validFiles.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...validFiles]);
-    }
-
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      const newHeight = Math.min(textareaRef.current.scrollHeight, 200);
-      textareaRef.current.style.height = `${newHeight}px`;
-
-      // Enable/disable scroll based on height
-      if (textareaRef.current.scrollHeight > 200) {
-        textareaRef.current.style.overflowY = 'auto';
-      } else {
-        textareaRef.current.style.overflowY = 'hidden';
-      }
-    }
-  }, [inputValue]);
 
   const handleSend = async () => {
     if (inputValue.trim() === '' || loading || disabled) return;
@@ -113,16 +46,9 @@ export default function ChatInput({
     setLoading(true);
     setError(null);
     setInputValue('');
+    resetHeight();
 
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-
-    // Add optimistic user message immediately
     onOptimisticMessage?.({ role: 'user', content: messageToSend });
-
-    // Signal stream start for assistant
     onStreamStart?.();
 
     const params = new URLSearchParams({
@@ -177,7 +103,6 @@ export default function ChatInput({
       onStreamEnd?.();
     };
 
-    // Cleanup on component unmount or chat change
     return () => {
       abortController.abort();
     };
@@ -194,7 +119,6 @@ export default function ChatInput({
 
   const isSendDisabled = inputValue.trim() === '' || loading || disabled;
 
-  // Get button classes based on active state
   const getButtonClasses = (isActive: boolean, isThinking = false) => {
     if (isActive) {
       return `h-8 w-8 rounded-lg bg-primary/20 text-primary border border-primary/40 ${isThinking ? 'ring-1 ring-primary/50 animate-pulse' : ''}`;
@@ -206,7 +130,6 @@ export default function ChatInput({
     <TooltipProvider>
       <div className="shrink-0 p-4 border-t border-border">
         <div className="mx-auto max-w-3xl w-full">
-          {/* Unified card wrapping both textarea and toolbar */}
           <div className="bg-surface border border-border rounded-2xl overflow-hidden focus-within:border-primary/40 focus-within:shadow-[0_0_0_1px_rgba(249,115,22,0.15)] transition-all duration-200">
             {/* Textarea */}
             <div className="px-4 pt-3">
@@ -230,7 +153,7 @@ export default function ChatInput({
               </div>
             )}
 
-            {/* Toolbar row - unified with the card, no separate background */}
+            {/* Toolbar */}
             <div className="flex items-center justify-between px-4 pb-3 pt-2 border-t border-border/40">
               {/* Left side - tools */}
               <div className="flex items-center gap-1">
@@ -252,7 +175,7 @@ export default function ChatInput({
                 </Tooltip>
               </div>
 
-              {/* Right side - send button + hint */}
+              {/* Right side - send button */}
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground/40 hidden sm:block">
                   Enter para enviar

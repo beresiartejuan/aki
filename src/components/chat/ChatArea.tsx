@@ -1,18 +1,9 @@
-import { Download, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import ChatInput from './ChatInput';
 import MessageList, { type MessageListHandle } from './MessageList';
+import { ChatHeader } from './ChatHeader';
+import { useChatActions } from './hooks/useChatActions';
 
 interface ChatAreaProps {
   chatId?: string;
@@ -23,120 +14,31 @@ export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [chatTitle, setChatTitle] = useState('Nueva conversación');
   const [projectTag, setProjectTag] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const messageListRef = useRef<MessageListHandle>(null);
 
-  const handleTopBarAction = async (action: string) => {
-    if (!chatId) return;
-
-    if (action === 'delete') {
-      if (!confirm(`¿Eliminar "${chatTitle}"? Esta acción no se puede deshacer.`)) {
-        return;
-      }
-
-      setIsDeleting(true);
-      try {
-        const response = await fetch(`/api/chats/${chatId}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to delete chat');
-        }
-
-        toast.success('Chat eliminado');
-        onChatDeleted?.(chatId);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Error al eliminar chat';
-        toast.error(errorMessage);
-        console.error('Error deleting chat:', err);
-      } finally {
-        setIsDeleting(false);
-      }
-    } else if (action === 'rename') {
-      const newTitle = prompt('Nuevo título:', chatTitle);
-      if (!newTitle || newTitle.trim() === '' || newTitle.trim() === chatTitle) return;
-
-      setIsRenaming(true);
-      try {
-        const response = await fetch(`/api/chats/${chatId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: newTitle.trim() }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to rename chat');
-        }
-
-        const updatedChat = await response.json();
-        setChatTitle(updatedChat.title);
-        toast.success('Chat renombrado');
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Error al renombrar chat';
-        toast.error(errorMessage);
-        console.error('Error renaming chat:', err);
-      } finally {
-        setIsRenaming(false);
-      }
-    } else if (action === 'export') {
-      setIsExporting(true);
-      try {
-        // Get messages
-        const response = await fetch(`/api/chats/${chatId}/messages`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch messages');
-        }
-
-        const messages = await response.json();
-
-        // Create markdown export
-        const exportContent = messages
-          .map((msg: { role: string; content: string }) => {
-            const role = msg.role === 'user' ? '**Usuario**' : '**Asistente**';
-            return `${role}:\n${msg.content}\n`;
-          })
-          .join('\n---\n\n');
-
-        // Create and download file
-        const blob = new Blob([`# ${chatTitle}\n\n${exportContent}`], { type: 'text/markdown' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${chatTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        toast.success('Conversación exportada');
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Error al exportar';
-        toast.error(errorMessage);
-        console.error('Error exporting chat:', err);
-      } finally {
-        setIsExporting(false);
-      }
-    } else if (action === 'share') {
-      // TODO: Implement share functionality
-      toast.info('Compartir - Próximamente');
-    }
-  };
+  const {
+    isDeleting,
+    isRenaming,
+    isExporting,
+    deleteChat,
+    renameChat,
+    exportChat,
+    shareChat,
+  } = useChatActions({
+    chatId,
+    chatTitle,
+    onChatDeleted,
+    onTitleUpdated: setChatTitle,
+  });
 
   const handleMessageSent = () => {
     setRefreshKey((prev) => prev + 1);
   };
 
-  // Optimistic message handler - adds user message to list immediately
   const handleOptimisticMessage = (message: { role: 'user' | 'assistant'; content: string }) => {
     messageListRef.current?.addOptimisticMessage(message);
   };
 
-  // Stream handlers
   const handleStreamStart = () => {
     messageListRef.current?.startStreaming();
   };
@@ -182,7 +84,6 @@ export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
     fetchChatDetails();
   }, [chatId, refreshKey]);
 
-  // Don't render if no chat selected
   if (!chatId) {
     return (
       <div className="flex flex-col flex-1 h-full overflow-hidden bg-background items-center justify-center">
@@ -195,69 +96,20 @@ export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
 
   return (
     <div className="flex flex-col flex-1 h-full overflow-hidden bg-background">
-      {/* Top Bar */}
-      <div className="shrink-0 h-14 flex items-center justify-between px-6 border-b border-border shadow-[0_1px_0_0_#222222]">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-foreground">{chatTitle}</h1>
-          {projectTag && (
-            <Badge
-              variant="outline"
-              className="bg-primary/15 text-primary border-primary/30 text-xs font-medium rounded-full px-2.5 py-0.5"
-            >
-              {projectTag}
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors duration-150"
-          >
-            <Share2 className="h-4 w-4" />
-          </Button>
+      <ChatHeader
+        chatTitle={chatTitle}
+        projectTag={projectTag}
+        isDeleting={isDeleting}
+        isRenaming={isRenaming}
+        isExporting={isExporting}
+        onRename={renameChat}
+        onExport={exportChat}
+        onShare={shareChat}
+        onDelete={deleteChat}
+      />
 
-          {/* Top bar dropdown menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors duration-150"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => handleTopBarAction('rename')}>
-                <Pencil className="mr-2 h-4 w-4" />
-                <span>Renombrar chat</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleTopBarAction('export')}>
-                <Download className="mr-2 h-4 w-4" />
-                <span>Exportar conversación</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleTopBarAction('share')}>
-                <Share2 className="mr-2 h-4 w-4" />
-                <span>Compartir</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleTopBarAction('delete')}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Eliminar chat</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Message List */}
       <MessageList ref={messageListRef} chatId={chatId} refreshKey={refreshKey} />
 
-      {/* Chat Input */}
       <ChatInput
         chatId={chatId}
         onMessageSent={handleMessageSent}

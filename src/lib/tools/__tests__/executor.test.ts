@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { executeTool } from '../executor';
-import * as fs from '../filesystem';
+import * as fs from '../fs';
 import * as sh from '../shell';
 
 // Mock filesystem and shell modules

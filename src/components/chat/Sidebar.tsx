@@ -1,461 +1,102 @@
-import {
-  Copy,
-  Loader2,
-  LogOut,
-  MessageSquare,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-react';
-import * as React from 'react';
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
-interface ChatItem {
-  id: string;
-  userId: string;
-  agentConfigId: string;
-  title: string;
-  projectTag: string | null;
-  isPinned: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-interface SidebarProps {
-  onSelectChat?: (chatId: string) => void;
-  activeChatId?: string;
-  onNewChat?: (chatId: string) => void;
-}
-
-interface User {
-  id: string;
-  username: string;
-  name: string;
-  plan: string;
-}
+import { useEffect, useState, useCallback } from 'react';
+import type { SidebarProps } from './sidebar/types';
+import { useUser } from './sidebar/hooks/useUser';
+import { useChatActions } from './sidebar/hooks/useChatActions';
+import { SidebarHeader } from './sidebar/SidebarHeader';
+import { SidebarFooter } from './sidebar/SidebarFooter';
+import { ChatList } from './sidebar/ChatList';
 
 export default function Sidebar({
   onSelectChat,
   activeChatId: propActiveChatId,
   onNewChat,
 }: SidebarProps) {
-  const [chats, setChats] = useState<ChatItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [internalActiveChatId, setInternalActiveChatId] = useState<string | undefined>(undefined);
-  const [isCreating, setIsCreating] = useState(false);
+  const { user, isLoggingOut, logout } = useUser();
+  const {
+    chats,
+    loading,
+    error,
+    isCreating,
+    deletingChatId,
+    editingChatId,
+    editingTitle,
+    renamingChatId,
+    duplicatingChatId,
+    setEditingTitle,
+    fetchChats,
+    createChat,
+    deleteChat,
+    startRenaming,
+    cancelRenaming,
+    submitRename,
+    duplicateChat,
+  } = useChatActions({ onSelectChat, activeChatId: propActiveChatId });
 
+  const [internalActiveChatId, setInternalActiveChatId] = useState<string | undefined>(undefined);
   const activeChatId = propActiveChatId ?? internalActiveChatId;
 
-  // Fetch user info
+  // Fetch chats on mount
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me');
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
-        }
-      } catch (err) {
-        console.error('Error fetching user:', err);
+    fetchChats().then((chats) => {
+      // Select first chat if none selected
+      if (!activeChatId && chats.length > 0) {
+        handleChatClick(chats[0].id);
       }
-    };
-
-    fetchUser();
+    });
   }, []);
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        toast.success('Sesión cerrada');
-        window.location.href = '/login';
-      } else {
-        toast.error('Error al cerrar sesión');
-      }
-    } catch (err) {
-      toast.error('Error de conexión');
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
-  // Fetch chats from API
-  useEffect(() => {
-    const fetchChats = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch('/api/chats');
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch chats');
-        }
-
-        setChats(data);
-
-        // Select first chat if none selected
-        if (!activeChatId && data.length > 0) {
-          handleChatClick(data[0].id);
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Error al cargar chats';
-        setError(errorMessage);
-        console.error('Error fetching chats:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchChats();
-  }, []);
-
-  const handleChatClick = (chatId: string) => {
+  const handleChatClick = useCallback((chatId: string) => {
     setInternalActiveChatId(chatId);
     onSelectChat?.(chatId);
-  };
+  }, [onSelectChat]);
 
   const handleNewChat = async () => {
-    setIsCreating(true);
-
-    try {
-      const response = await fetch('/api/chats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Nueva conversación' }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create chat');
-      }
-
-      // Add new chat to list and select it
-      setChats((prev) => [data, ...prev]);
-      handleChatClick(data.id);
-      onNewChat?.(data.id);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al crear chat';
-      toast.error(errorMessage);
-      console.error('Error creating chat:', err);
-    } finally {
-      setIsCreating(false);
+    const newChat = await createChat();
+    if (newChat) {
+      handleChatClick(newChat.id);
+      onNewChat?.(newChat.id);
     }
   };
 
-  const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
-  const [editingChatId, setEditingChatId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
-  const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
-  const [duplicatingChatId, setDuplicatingChatId] = useState<string | null>(null);
-
-  const handleMenuAction = async (action: string, chatId: string) => {
-    if (action === 'delete') {
-      const chatToDelete = chats.find((c) => c.id === chatId);
-      if (!chatToDelete) return;
-
-      // Confirm before delete
-      if (!confirm(`¿Eliminar "${chatToDelete.title}"? Esta acción no se puede deshacer.`)) {
-        return;
-      }
-
-      setDeletingChatId(chatId);
-
-      try {
-        const response = await fetch(`/api/chats/${chatId}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to delete chat');
-        }
-
-        // Remove from state
-        setChats((prev) => prev.filter((c) => c.id !== chatId));
-
-        // If deleted chat was active, clear selection
-        if (activeChatId === chatId) {
-          setInternalActiveChatId(undefined);
-          onSelectChat?.('');
-        }
-
-        toast.success('Chat eliminado');
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Error al eliminar chat';
-        toast.error(errorMessage);
-        console.error('Error deleting chat:', err);
-      } finally {
-        setDeletingChatId(null);
-      }
-    } else if (action === 'rename') {
-      const chat = chats.find((c) => c.id === chatId);
-      if (chat) {
-        setEditingChatId(chatId);
-        setEditingTitle(chat.title);
-      }
+  const handleMenuAction = async (action: 'rename' | 'duplicate' | 'delete', chatId: string) => {
+    if (action === 'rename') {
+      startRenaming(chatId);
     } else if (action === 'duplicate') {
-      setDuplicatingChatId(chatId);
-
-      try {
-        const response = await fetch(`/api/chats/${chatId}/duplicate`, {
-          method: 'POST',
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to duplicate chat');
-        }
-
-        const duplicatedChat = await response.json();
-
-        // Add duplicated chat to list
-        setChats((prev) => [duplicatedChat, ...prev]);
-
-        toast.success('Chat duplicado');
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Error al duplicar chat';
-        toast.error(errorMessage);
-        console.error('Error duplicating chat:', err);
-      } finally {
-        setDuplicatingChatId(null);
+      await duplicateChat(chatId);
+    } else if (action === 'delete') {
+      const success = await deleteChat(chatId);
+      if (success && activeChatId === chatId) {
+        setInternalActiveChatId(undefined);
       }
     }
   };
 
   const handleRenameSubmit = async (chatId: string) => {
-    const trimmedTitle = editingTitle.trim();
-    if (!trimmedTitle) {
-      setEditingChatId(null);
-      return;
-    }
-
-    setRenamingChatId(chatId);
-
-    try {
-      const response = await fetch(`/api/chats/${chatId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: trimmedTitle }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to rename chat');
-      }
-
-      const updatedChat = await response.json();
-
-      // Update local state
-      setChats((prev) =>
-        prev.map((c) =>
-          c.id === chatId
-            ? { ...c, title: updatedChat.title, updatedAt: updatedChat.updatedAt }
-            : c
-        )
-      );
-
-      toast.success('Chat renombrado');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al renombrar chat';
-      toast.error(errorMessage);
-      console.error('Error renaming chat:', err);
-    } finally {
-      setRenamingChatId(null);
-      setEditingChatId(null);
-      setEditingTitle('');
-    }
-  };
-
-  const handleRenameCancel = () => {
-    setEditingChatId(null);
-    setEditingTitle('');
-  };
-
-  const formatTimeAgo = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 60) {
-      return minutes < 1 ? 'ahora' : `${minutes}m`;
-    } else if (hours < 24) {
-      return `${hours}h`;
-    } else {
-      return `${days}d`;
-    }
+    await submitRename(chatId);
   };
 
   return (
     <aside className="flex flex-col h-full w-64 shrink-0 bg-surface border-r border-border">
-      {/* Header */}
-      <div className="shrink-0 p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-                <span className="text-black font-bold text-sm">A</span>
-              </div>
-              <span className="font-semibold text-foreground">Aki</span>
-            </div>
-          </div>
-        </div>
-
-        {/* New chat button with loading state */}
-        <Button
-          variant="outline"
-          className={`w-full gap-2 border-border text-foreground hover:border-primary hover:text-primary transition-colors duration-150 ${
-            isCreating ? 'pointer-events-none opacity-70' : ''
-          }`}
-          onClick={handleNewChat}
-          disabled={isCreating}
-        >
-          {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          Nuevo chat
-        </Button>
-      </div>
-
-      {/* Chat List */}
-      <div className="flex-1 overflow-y-auto py-2 scrollbar-thin">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-4 w-4 animate-spin" />
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center h-full text-destructive text-sm">
-            Error: {error}
-          </div>
-        ) : chats.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            No hay chats
-          </div>
-        ) : (
-          chats.map((chat) => {
-            const isActive = chat.id === activeChatId;
-            return (
-              <div
-                key={chat.id}
-                onClick={() => handleChatClick(chat.id)}
-                className={`group flex items-start gap-3 py-3 cursor-pointer transition-colors duration-150 ${
-                  isActive
-                    ? 'bg-surface-hover border-l-2 border-l-primary pl-[calc(theme(spacing.4)-2px)] pr-4'
-                    : 'border-l-2 border-l-transparent hover:bg-surface-hover px-4'
-                }`}
-              >
-                <MessageSquare className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    {editingChatId === chat.id ? (
-                      <input
-                        type="text"
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onBlur={() => handleRenameSubmit(chat.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleRenameSubmit(chat.id);
-                          } else if (e.key === 'Escape') {
-                            handleRenameCancel();
-                          }
-                        }}
-                        autoFocus
-                        disabled={renamingChatId === chat.id}
-                        className="font-medium text-foreground text-sm bg-transparent border-none outline-none focus:ring-0 w-full px-0 py-0 disabled:opacity-50"
-                      />
-                    ) : (
-                      <span className="font-medium text-foreground text-sm truncate">
-                        {chat.title}
-                      </span>
-                    )}
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {formatTimeAgo(chat.updatedAt)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {chat.projectTag || 'Sin etiqueta'}
-                  </p>
-                </div>
-
-                {/* Chat item dropdown menu */}
-                <div
-                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 -mr-2">
-                        <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="right" className="w-40">
-                      <DropdownMenuItem onClick={() => handleMenuAction('rename', chat.id)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        <span>Renombrar</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleMenuAction('duplicate', chat.id)}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        <span>Duplicar</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleMenuAction('delete', chat.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Eliminar</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="shrink-0 border-t border-border p-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">{user?.name || 'Usuario'}</p>
-            <p className="text-xs text-muted-foreground capitalize">{user?.plan || 'Free'} Plan</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            title="Cerrar sesión"
-          >
-            {isLoggingOut ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <LogOut className="h-4 w-4 text-muted-foreground" />
-            )}
-          </Button>
-        </div>
-      </div>
+      <SidebarHeader isCreating={isCreating} onNewChat={handleNewChat} />
+      
+      <ChatList
+        chats={chats}
+        loading={loading}
+        error={error}
+        activeChatId={activeChatId}
+        deletingChatId={deletingChatId}
+        editingChatId={editingChatId}
+        editingTitle={editingTitle}
+        renamingChatId={renamingChatId}
+        duplicatingChatId={duplicatingChatId}
+        onChatClick={handleChatClick}
+        onMenuAction={handleMenuAction}
+        onRenameSubmit={handleRenameSubmit}
+        onRenameCancel={cancelRenaming}
+        onEditingTitleChange={setEditingTitle}
+      />
+      
+      <SidebarFooter user={user} isLoggingOut={isLoggingOut} onLogout={logout} />
     </aside>
   );
 }

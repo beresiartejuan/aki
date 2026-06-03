@@ -1,5 +1,5 @@
 import type { ToolCall } from 'ollama';
-import * as fs from './filesystem';
+import * as fs from './fs';
 import * as sh from './shell';
 
 /**
