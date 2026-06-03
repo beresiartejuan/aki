@@ -7,6 +7,8 @@ export const users = sqliteTable('users', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
+  username: text('username').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
   name: text('name').notNull(),
   plan: text('plan').notNull().default('free'), // "free" | "pro"
   createdAt: integer('created_at')
@@ -144,6 +146,72 @@ export const insertChatSummarySchema = createInsertSchema(chatSummaries);
 export const selectChatSummarySchema = createSelectSchema(chatSummaries);
 export type ChatSummary = z.infer<typeof selectChatSummarySchema>;
 export type InsertChatSummary = z.infer<typeof insertChatSummarySchema>;
+
+// Sessions table - for cookie-based authentication
+export const sessions = sqliteTable('sessions', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: integer('created_at')
+    .notNull()
+    .$defaultFn(() => Date.now()),
+});
+
+// Attachments table - for file uploads
+export const attachments = sqliteTable('attachments', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  messageId: text('message_id')
+    .notNull()
+    .references(() => messages.id, { onDelete: 'cascade' }),
+  filename: text('filename').notNull(),
+  originalName: text('original_name').notNull(),
+  fileType: text('file_type').notNull(),
+  fileSize: integer('file_size').notNull(),
+  filePath: text('file_path').notNull(),
+  createdAt: integer('created_at')
+    .notNull()
+    .$defaultFn(() => Date.now()),
+});
+
+// Shared chats table - for public links
+export const sharedChats = sqliteTable('shared_chats', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  chatId: text('chat_id')
+    .notNull()
+    .references(() => chats.id, { onDelete: 'cascade' }),
+  shareHash: text('share_hash').notNull().unique(),
+  isActive: integer('is_active').notNull().default(1), // 0 = false, 1 = true
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: integer('created_at')
+    .notNull()
+    .$defaultFn(() => Date.now()),
+});
+
+// Zod schemas for sessions
+export const insertSessionSchema = createInsertSchema(sessions);
+export const selectSessionSchema = createSelectSchema(sessions);
+export type Session = z.infer<typeof selectSessionSchema>;
+export type InsertSession = z.infer<typeof insertSessionSchema>;
+
+// Zod schemas for attachments
+export const insertAttachmentSchema = createInsertSchema(attachments);
+export const selectAttachmentSchema = createSelectSchema(attachments);
+export type Attachment = z.infer<typeof selectAttachmentSchema>;
+export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
+
+// Zod schemas for sharedChats
+export const insertSharedChatSchema = createInsertSchema(sharedChats);
+export const selectSharedChatSchema = createSelectSchema(sharedChats);
+export type SharedChat = z.infer<typeof selectSharedChatSchema>;
+export type InsertSharedChat = z.infer<typeof insertSharedChatSchema>;
 
 // Zod schemas for agentMemory
 export const insertAgentMemorySchema = createInsertSchema(agentMemory);
