@@ -2,6 +2,8 @@
 
 <div align="center">
 
+![Aki Chat Interface](./screenshot.png)
+
 **Un asistente de IA potenciado por Ollama con capacidades de manipulación de archivos y ejecución de comandos**
 
 [![Astro](https://img.shields.io/badge/Astro-6.4.2-FF5D01?style=flat&logo=astro&logoColor=white)](https://astro.build)
