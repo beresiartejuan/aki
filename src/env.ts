@@ -2,10 +2,10 @@
 // We'll access them directly with basic validation
 
 export const env = {
-  DB_PATH: import.meta.env.DB_PATH || './data/aki.db',
-  OLLAMA_API_KEY: import.meta.env.OLLAMA_API_KEY,
-  OLLAMA_MODEL: import.meta.env.OLLAMA_MODEL || 'qwen3.5',
-  WORKSPACE_ROOT: import.meta.env.WORKSPACE_ROOT || './workspace',
+  DB_PATH: import.meta.env?.DB_PATH || './data/aki.db',
+  OLLAMA_API_KEY: import.meta.env?.OLLAMA_API_KEY,
+  OLLAMA_MODEL: import.meta.env?.OLLAMA_MODEL || 'qwen3.5',
+  WORKSPACE_ROOT: import.meta.env?.WORKSPACE_ROOT || './workspace',
 };
 
 // Basic validation
