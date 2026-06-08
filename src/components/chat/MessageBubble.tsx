@@ -47,7 +47,7 @@ export default function MessageBubble({
 
   if (role === 'user') {
     return (
-      <div className="group relative mb-2 max-w-2xl w-fit">
+      <div className="group relative mb-2 w-full">
         {/* User message - soft card with proper left border accent */}
         <div className="bg-surface rounded-2xl rounded-tl-none border-l-[3px] border-primary px-4 py-3 pr-10">
           {/* Copy button - appears on hover, positioned inside the card */}
