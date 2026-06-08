@@ -1,4 +1,4 @@
-import { eq, gt } from 'drizzle-orm';
+import { eq, gt, sql } from 'drizzle-orm';
 import { db } from '../index';
 import { type Result, safeQuery } from '../result';
 import { type InsertSession, type InsertUser, type Session, type User, insertSessionSchema, insertUserSchema, selectSessionSchema, selectUserSchema, sessions, users } from '../schema';
@@ -15,6 +15,16 @@ export function getUserByUsername(username: string): Promise<Result<User | undef
     }
 
     return selectUserSchema.parse(result[0]);
+  });
+}
+
+/**
+ * Check if any users exist in the database
+ */
+export function hasUsers(): Promise<Result<boolean>> {
+  return safeQuery(async () => {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+    return result[0].count > 0;
   });
 }
 
