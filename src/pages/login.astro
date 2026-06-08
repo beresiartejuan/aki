@@ -1,7 +1,24 @@
 ---
-// Login page - redirects to home if already authenticated
+// Login page - redirects to home if already authenticated, or to setup if no users exist
+export const prerender = false;
+
+import { hasUsers } from '../db/queries/auth';
+
 const sessionId = Astro.cookies.get('sessionId')?.value;
 
+// Check if any users exist
+const usersExist = await hasUsers();
+
+if (!usersExist.ok) {
+  console.error('Error checking users:', usersExist.error);
+}
+
+// If no users exist, redirect to setup page
+if (usersExist.ok && !usersExist.data) {
+  return Astro.redirect('/setup');
+}
+
+// If already authenticated, redirect to home
 if (sessionId) {
   return Astro.redirect('/');
 }

@@ -4,14 +4,16 @@ import { getSessionById } from './db/queries/auth';
 // Paths that don't require authentication
 const PUBLIC_PATHS = [
   '/login',
+  '/setup',
   '/api/auth/login',
+  '/api/auth/setup',
   '/api/auth/logout',
   '/shared', // Shared chats are public
   '/_astro',
   '/favicon',
 ];
 
-export const authMiddleware: MiddlewareHandler = async ({ url, request, cookies, locals, redirect }, next) => {
+export const onRequest: MiddlewareHandler = async ({ url, request, cookies, locals, redirect }, next) => {
   const path = url.pathname;
 
   // Check if path is public
