@@ -1,33 +1,18 @@
 /**
  * Database seed script for initializing default data.
- * Ensures default user and agent config exist on startup.
+ * Ensures default agent config exists on startup.
  */
 
 import { env } from '../env';
-import { DEFAULT_AGENT_ID, DEFAULT_USER_ID } from '../lib/constants';
-import { upsertAgentConfig, upsertUser } from './queries/config';
+import { DEFAULT_AGENT_ID } from '../lib/constants';
+import { upsertAgentConfig } from './queries/config';
 
 /**
- * Ensures the default user and agent config exist in the database.
+ * Ensures the default agent config exist in the database.
  * Uses upsert operations so it's safe to call multiple times.
  */
 export async function ensureDefaults(): Promise<void> {
-  console.log('[seed] Ensuring default user and agent config exist...');
-
-  // Ensure default user exists
-  const userResult = await upsertUser({
-    id: DEFAULT_USER_ID,
-    name: 'Usuario',
-    plan: 'free',
-    createdAt: Date.now(),
-  });
-
-  if (!userResult.ok) {
-    console.error('[seed] Failed to upsert default user:', userResult.error);
-    throw userResult.error;
-  }
-
-  console.log('[seed] Default user ensured:', userResult.data.id);
+  console.log('[seed] Ensuring default agent config exist...');
 
   // Ensure default agent config exists
   const agentResult = await upsertAgentConfig({
