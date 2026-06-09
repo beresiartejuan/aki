@@ -110,10 +110,14 @@ async function runMakimaInBackground(job: MakimaJob, chatId: string): Promise<vo
         emitMakimaChunk(job.id, chunk); // SSE inmediato
         scheduleFlush();
       },
-      onDone: async (lastChunk) => {
+      onDone: async (fullOutput) => {
         await flushBuffer();
         try {
-          const verification = await requestAkiVerification(lastChunk);
+          const verification = await requestAkiVerification(
+            fullOutput,
+            job.prompt,
+            job.userMessage
+          );
           await finishMakimaJob(job.id, verification);
           await saveVerificationMessage(chatId, verification);
           emitMakimaAkiVerification(job.id, verification);
@@ -121,7 +125,7 @@ async function runMakimaInBackground(job: MakimaJob, chatId: string): Promise<vo
           // Aún así marcar como done con verificación de fallback
           await finishMakimaJob(
             job.id,
-            'Tarea completada (no se pudo obtener verificación de Aki)'
+            'Listo, Makima completó la tarea que pediste (no se pudo obtener verificación detallada).'
           ).catch(() => {});
         } finally {
           emitMakimaDone(job.id); // ← siempre se emite
@@ -153,19 +157,29 @@ async function runMakimaInBackground(job: MakimaJob, chatId: string): Promise<vo
   }
 }
 
-async function requestAkiVerification(lastChunk: string): Promise<string> {
+async function requestAkiVerification(
+  fullOutput: string,
+  prompt: string,
+  userMessage: string
+): Promise<string> {
   try {
     const config = await loadAgentConfig();
+
+    // Truncar output si es muy largo para no exceder contexto
+    const truncatedOutput =
+      fullOutput.length > 8000
+        ? `${fullOutput.slice(0, 4000)}\n\n[... output muy largo, continuación ...]\n\n${fullOutput.slice(-4000)}`
+        : fullOutput;
 
     const messages = [
       {
         role: 'system' as const,
         content:
-          'Sos Aki. Recibís el reporte final de Makima y escribís un mensaje MUY corto para el usuario (1-2 oraciones máximo) confirmando si la tarea salió bien o si hubo algún problema. Sin tecnicismos, directo al punto.',
+          'Sos Aki. Recibís el reporte completo de Makima (agente de ejecución) y escribís una respuesta natural para el usuario.\n\nReglas:\n- Explicá qué hizo Makima de forma clara y amigable.\n- No repitas mensajes genéricos como "Makima terminó su tarea". Interpretá el output real.\n- Si Makima encontró archivos, listálos brevemente.\n- Si Makima ejecutó comandos, mencioná el resultado.\n- Si hubo un error, explicá qué pasó sin tecnicismos.\n- Usá Markdown si ayuda a clarificar.\n- Sé conversacional pero conciso (máximo 3-4 oraciones).',
       },
       {
         role: 'user' as const,
-        content: `Makima terminó su tarea. Estas son sus últimas líneas de output:\n\n${lastChunk}\n\n¿Salió bien?`,
+        content: `Mensaje original del usuario: ${userMessage}\n\nTarea delegada a Makima: ${prompt}\n\nOutput completo de Makima:\n\n${truncatedOutput}\n\nResumí para el usuario qué hizo Makima y el resultado final.`,
       },
     ];
 
@@ -173,16 +187,15 @@ async function requestAkiVerification(lastChunk: string): Promise<string> {
       model: config.model,
       messages,
       options: {
-        temperature: 0.4,
-        num_predict: 512,
+        temperature: 0.5,
+        num_predict: 1024,
       },
     });
 
-    // Usar || en lugar de ?? para capturar strings vacíos también
-    const content = response.message.content || 'Makima terminó su tarea.';
+    const content = response.message.content || 'Listo, Makima completó la tarea que pediste.';
     return content;
   } catch {
-    return 'Makima completó la tarea.';
+    return 'Listo, Makima completó la tarea que pediste.';
   }
 }
 

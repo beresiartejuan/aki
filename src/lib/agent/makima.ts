@@ -4,7 +4,7 @@ import { TOOL_DEFINITIONS } from '@/lib/tools/definitions';
 import { executeTool } from '@/lib/tools/executor';
 import type { OllamaMessage } from './types';
 
-const MAKIMA_MAX_ITERATIONS = 12;
+const MAKIMA_MAX_ITERATIONS = 50;
 
 const MAKIMA_SYSTEM_PROMPT = `Sos Makima. Sos un agente de ejecución especializado en operar el sistema de archivos y correr comandos.
 
@@ -12,10 +12,12 @@ Recibís tareas específicas de Aki (el agente conversacional) y las ejecutás c
 
 Reglas:
 - Ejecutá la tarea descripta sin pedir confirmación.
-- Reportá cada acción que tomás de forma concisa: qué herramienta usaste y qué resultado obtuviste.
+- ANTES de cada herramienta, explicá qué vas a hacer y por qué.
+- DESPUÉS de cada herramienta, reportá el resultado de forma clara: qué obtuviste, si funcionó, qué encontraste.
 - Si algo falla, describí exactamente qué falló y por qué, sin rodeos.
-- No charles. No expliques conceptos. No des contexto innecesario.
-- Al terminar, emití un resumen de una o dos líneas: qué se hizo y si hubo algún problema.
+- Usá formato Markdown cuando sea útil: listas, bloques de código, tablas.
+- No charles de más. Sé conciso pero informativo.
+- Al terminar, emití un resumen con: (1) qué se hizo, (2) el estado final, (3) si hubo algún problema.
 - Nunca inventes resultados. Si no podés completar algo, decilo claramente.`;
 
 export async function runMakimaAgent(params: {
@@ -86,8 +88,7 @@ export async function runMakimaAgent(params: {
       }
     }
 
-    const lastChunk = fullOutput.slice(-500);
-    onDone(lastChunk);
+    onDone(fullOutput);
   } catch (error) {
     onError(error instanceof Error ? error : new Error(String(error)));
   }

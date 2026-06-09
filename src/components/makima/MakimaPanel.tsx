@@ -10,6 +10,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { Button } from '@/components/ui/button';
 import { useMakimaStream } from '@/hooks/useMakimaStream';
 
@@ -86,23 +87,28 @@ function formatRelativeTime(timestamp: number): string {
 function MakimaOutput({ output, isStreaming }: { output: string; isStreaming: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: output intentionally triggers scroll update
   useEffect(() => {
     if (scrollRef.current && isStreaming) {
       const container = scrollRef.current;
       const isNearBottom =
-        container.scrollTop + container.clientHeight >= container.scrollHeight - 50;
+        container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
       if (isNearBottom) {
         container.scrollTop = container.scrollHeight;
       }
     }
-  }, [isStreaming]);
+  }, [isStreaming, output]);
 
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 font-mono text-[13px] leading-6 text-foreground/80 bg-[#0d0d0d] rounded-lg border border-border/60"
+      className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 text-[13px] leading-6 text-foreground/80 bg-[#0d0d0d] rounded-lg border border-border/60"
     >
-      {output || <span className="text-muted-foreground/40 italic">Esperando output...</span>}
+      {output ? (
+        <MarkdownRenderer content={output} streaming={isStreaming} />
+      ) : (
+        <span className="text-muted-foreground/40 italic">Esperando output...</span>
+      )}
       {isStreaming && <span className="inline-block w-2 h-4 bg-orange-400/60 ml-1 animate-pulse" />}
     </div>
   );
