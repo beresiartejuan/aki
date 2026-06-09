@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import bcrypt from 'bcryptjs';
-import { createSession, getUserByUsername } from '../../../db/queries/auth';
+import { createSession, getUserByUsername } from '@/db/queries/auth';
 
 export const prerender = false;
 

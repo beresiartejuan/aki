@@ -1,8 +1,7 @@
 import type { APIRoute } from 'astro';
 import bcrypt from 'bcryptjs';
-import { createSession, hasUsers } from '../../../db/queries/auth';
-import { createUser } from '../../../db/queries/auth';
-import { DEFAULT_USER_ID } from '../../../lib/constants';
+import { createSession, createUser, hasUsers } from '@/db/queries/auth';
+import { DEFAULT_USER_ID } from '@/lib/constants';
 
 export const prerender = false;
 
@@ -13,7 +12,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   try {
     // First check if users already exist
     const usersExistResult = await hasUsers();
-    
+
     if (!usersExistResult.ok) {
       return new Response(
         JSON.stringify({ error: 'Database error', detail: usersExistResult.error.message }),
@@ -38,24 +37,18 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     // Validate required fields
     if (!username || !name || !password) {
-      return new Response(
-        JSON.stringify({ error: 'Username, name, and password are required' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Username, name, and password are required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Validate password length
     if (password.length < 6) {
-      return new Response(
-        JSON.stringify({ error: 'Password must be at least 6 characters' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Hash password

@@ -1,6 +1,5 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { assertInsideSandbox } from '../sandbox';
+import * as fs from 'node:fs/promises';
+import { assertInsideSandbox } from '@/lib/tools/sandbox';
 
 /**
  * Read the contents of a file.
@@ -24,7 +23,7 @@ export async function readFile(filePath: string): Promise<string> {
         await fd.close();
         return buf;
       });
-      return buffer.toString('utf-8') + '\n[... file truncated at 100KB]';
+      return `${buffer.toString('utf-8')}\n[... file truncated at 100KB]`;
     }
 
     const content = await fs.readFile(filePath, 'utf-8');

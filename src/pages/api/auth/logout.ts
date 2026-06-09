@@ -1,9 +1,9 @@
 import type { APIRoute } from 'astro';
-import { deleteSession } from '../../../db/queries/auth';
+import { deleteSession } from '@/db/queries/auth';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request: _request, cookies }) => {
   try {
     const sessionId = cookies.get('sessionId')?.value;
 

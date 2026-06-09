@@ -1,7 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import type { APIRoute } from 'astro';
-import { randomUUID } from 'crypto';
-import { createChat, getAllChats } from '../../../db/queries/chats';
-import { DEFAULT_AGENT_ID, DEFAULT_USER_ID } from '../../../lib/constants';
+import { createChat, getAllChats } from '@/db/queries/chats';
+import { DEFAULT_AGENT_ID, DEFAULT_USER_ID } from '@/lib/constants';
 
 export const prerender = false;
 

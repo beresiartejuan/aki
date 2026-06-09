@@ -1,4 +1,5 @@
 import { Download, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -7,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 
 interface ChatHeaderProps {
   chatTitle: string;
@@ -42,7 +42,7 @@ export function ChatHeader({
           </Badge>
         )}
       </div>
-      
+
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
@@ -62,7 +62,7 @@ export function ChatHeader({
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          
+
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onClick={onRename}>
               <Pencil className="mr-2 h-4 w-4" />

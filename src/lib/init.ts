@@ -1,6 +1,5 @@
-import { createChat } from '../db/queries/chats';
-import { upsertAgentConfig, upsertUser } from '../db/queries/config';
-import { env } from '../env';
+import { upsertAgentConfig, upsertUser } from '@/db/queries/config';
+import { env } from '@/env';
 import { DEFAULT_AGENT_ID, DEFAULT_USER_ID } from './constants';
 
 export async function initializeDatabase() {

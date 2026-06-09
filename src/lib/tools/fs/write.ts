@@ -1,6 +1,6 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { assertInsideSandbox } from '../sandbox';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { assertInsideSandbox } from '@/lib/tools/sandbox';
 
 /**
  * Write content to a file, creating parent directories if needed.

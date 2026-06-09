@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../index';
-import { type Result, safeQuery } from '../result';
-import type { AgentConfig, InsertAgentConfig, InsertUser, User } from '../schema';
+import { db } from '@/db';
+import { type Result, safeQuery } from '@/db/result';
+import type { AgentConfig, InsertAgentConfig, InsertUser, User } from '@/db/schema';
 import {
   agentConfig,
   insertAgentConfigSchema,
@@ -9,7 +9,7 @@ import {
   selectAgentConfigSchema,
   selectUserSchema,
   users,
-} from '../schema';
+} from '@/db/schema';
 
 /**
  * Get agent configuration by ID

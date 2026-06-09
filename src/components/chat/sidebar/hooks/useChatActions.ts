@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import type { ChatItem } from '../types';
+import type { ChatItem } from '@/components/chat/sidebar/types';
 
 interface UseChatActionsProps {
   onSelectChat?: (chatId: string) => void;
@@ -149,9 +149,7 @@ export function useChatActions({ onSelectChat, activeChatId }: UseChatActionsPro
 
       setChats((prev) =>
         prev.map((c) =>
-          c.id === chatId
-            ? { ...c, title: updatedChat.title, updatedAt: updatedChat.updatedAt }
-            : c
+          c.id === chatId ? { ...c, title: updatedChat.title, updatedAt: updatedChat.updatedAt } : c
         )
       );
 

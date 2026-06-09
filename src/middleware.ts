@@ -8,18 +8,20 @@ const PUBLIC_PATHS = [
   '/api/auth/login',
   '/api/auth/setup',
   '/api/auth/logout',
+  '/api/auth/me',
   '/shared', // Shared chats are public
   '/_astro',
   '/favicon',
 ];
 
-export const onRequest: MiddlewareHandler = async ({ url, request, cookies, locals, redirect }, next) => {
+export const onRequest: MiddlewareHandler = async (
+  { url, request: _request, cookies, locals, redirect },
+  next
+) => {
   const path = url.pathname;
 
   // Check if path is public
-  const isPublic = PUBLIC_PATHS.some((publicPath) =>
-    path.startsWith(publicPath)
-  );
+  const isPublic = PUBLIC_PATHS.some((publicPath) => path.startsWith(publicPath));
 
   if (isPublic) {
     return next();

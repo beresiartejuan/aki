@@ -1,5 +1,5 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import { assertInsideSandbox, WORKSPACE_ROOT } from './sandbox';
 import { isBlockedCommand } from './security';
 
@@ -37,18 +37,18 @@ export async function runCommand(command: string, workingDir?: string): Promise<
     // Build result
     let result = stdout.trim();
 
-    if (stderr && stderr.trim()) {
+    if (stderr?.trim()) {
       if (result) {
-        result += '\n[stderr]: ' + stderr.trim();
+        result += `\n[stderr]: ${stderr.trim()}`;
       } else {
-        result = '[stderr]: ' + stderr.trim();
+        result = `[stderr]: ${stderr.trim()}`;
       }
     }
 
     // Limit output to 8000 characters
     const MAX_OUTPUT = 8000;
     if (result.length > MAX_OUTPUT) {
-      result = result.slice(0, MAX_OUTPUT) + '\n[... output truncated]';
+      result = `${result.slice(0, MAX_OUTPUT)}\n[... output truncated]`;
     }
 
     return result || 'Command executed successfully (no output)';
@@ -63,13 +63,13 @@ export async function runCommand(command: string, workingDir?: string): Promise<
     let errorMessage = err.message || 'Unknown error';
 
     if (err.stderr) {
-      errorMessage += '\n' + err.stderr;
+      errorMessage += `\n${err.stderr}`;
     }
 
     // Limit error output too
     const MAX_OUTPUT = 8000;
     if (errorMessage.length > MAX_OUTPUT) {
-      errorMessage = errorMessage.slice(0, MAX_OUTPUT) + '\n[... error truncated]';
+      errorMessage = `${errorMessage.slice(0, MAX_OUTPUT)}\n[... error truncated]`;
     }
 
     return `Error: ${errorMessage}`;

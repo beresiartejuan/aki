@@ -1,8 +1,8 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { APIRoute } from 'astro';
-import fs from 'fs/promises';
-import path from 'path';
-import { createAttachment } from '../../../db/queries/attachments';
-import { getMessageById } from '../../../db/queries/messages';
+import { createAttachment } from '@/db/queries/attachments';
+import { getMessageById } from '@/db/queries/messages';
 
 export const prerender = false;
 

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import type { User } from '../types';
+import { useEffect, useState } from 'react';
+import type { User } from '@/components/chat/sidebar/types';
 
 export function useUser() {
   const [user, setUser] = useState<User | null>(null);

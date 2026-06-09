@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { deleteMemoryEntry } from '../../../db/queries/memory';
+import { deleteMemoryEntry } from '@/db/queries/memory';
 
 export const prerender = false;
 

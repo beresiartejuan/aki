@@ -1,7 +1,18 @@
 import { eq, gt, sql } from 'drizzle-orm';
-import { db } from '../index';
-import { type Result, safeQuery } from '../result';
-import { type InsertSession, type InsertUser, type Session, type User, insertSessionSchema, insertUserSchema, selectSessionSchema, selectUserSchema, sessions, users } from '../schema';
+import { db } from '@/db';
+import { type Result, safeQuery } from '@/db/result';
+import {
+  type InsertSession,
+  type InsertUser,
+  insertSessionSchema,
+  insertUserSchema,
+  type Session,
+  selectSessionSchema,
+  selectUserSchema,
+  sessions,
+  type User,
+  users,
+} from '@/db/schema';
 
 /**
  * Get user by username

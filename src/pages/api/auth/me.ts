@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getSessionById, getUserByUsername } from '../../../db/queries/auth';
+import { getSessionById, getUserByUsername } from '@/db/queries/auth';
 
 export const prerender = false;
 

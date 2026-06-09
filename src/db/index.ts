@@ -1,7 +1,7 @@
 // @ts-expect-error: better-sqlite3 has no type declarations
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { env } from '../env';
+import { env } from '@/env';
 import * as schema from './schema';
 import { ensureDefaults } from './seed';
 

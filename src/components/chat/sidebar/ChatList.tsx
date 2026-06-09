@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react';
-import type { ChatItem } from './types';
 import { ChatListItem } from './ChatListItem';
+import type { ChatItem } from './types';
 
 interface ChatListProps {
   chats: ChatItem[];

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getMessagesByChatId } from '../../../../db/queries/messages';
+import { getMessagesByChatId } from '@/db/queries/messages';
 
 export const prerender = false;
 

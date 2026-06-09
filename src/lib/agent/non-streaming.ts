@@ -1,10 +1,10 @@
-import { getChatById, updateChatTitle } from '../../db/queries/chats';
-import { createMessage } from '../../db/queries/messages';
-import { safeQuery } from '../../db/result';
-import { ollama } from '../ollama';
-import { buildContext } from '../context';
-import { summarizeChat } from '../summarizer';
-import { extractMemory } from '../memory-extractor';
+import { getChatById, updateChatTitle } from '@/db/queries/chats';
+import { createMessage } from '@/db/queries/messages';
+import { safeQuery } from '@/db/result';
+import { buildContext } from '@/lib/context';
+import { extractMemory } from '@/lib/memory-extractor';
+import { ollama } from '@/lib/ollama';
+import { summarizeChat } from '@/lib/summarizer';
 import { loadAgentConfig } from './config';
 import type { OllamaMessage } from './types';
 
@@ -35,7 +35,7 @@ export async function runAgentTurnWithUser(
     }
 
     const config = await loadAgentConfig();
-    
+
     const messages: OllamaMessage[] = [
       { role: 'system', content: systemPrompt },
       ...recentMessages,
@@ -75,15 +75,13 @@ export async function runAgentTurnWithUser(
     // Update chat title if needed
     const chatResult = await getChatById(chatId);
     if (chatResult.ok && chatResult.data?.title === 'Nueva conversación') {
-      const title = userContent.split(' ').slice(0, 5).join(' ') + '...';
+      const title = `${userContent.split(' ').slice(0, 5).join(' ')}...`;
       await updateChatTitle(chatId, title);
     }
 
     // Background tasks
     if (shouldSummarize) {
-      summarizeChat(chatId, userId).catch((err) =>
-        console.error('[summarizer] failed:', err)
-      );
+      summarizeChat(chatId, userId).catch((err) => console.error('[summarizer] failed:', err));
     }
 
     extractMemory(chatId, userId, userContent, content).catch((err) =>

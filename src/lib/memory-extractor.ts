@@ -1,8 +1,8 @@
-import { upsertMemoryEntry } from '../db/queries/memory';
-import { ok, type Result, safeQuery } from '../db/result';
-import { getAgentConfig } from '../db/queries/config';
+import { getAgentConfig } from '@/db/queries/config';
+import { upsertMemoryEntry } from '@/db/queries/memory';
+import { type Result, safeQuery } from '@/db/result';
+import { env } from '@/env';
 import { DEFAULT_AGENT_ID } from './constants';
-import { env } from '../env';
 import { ollama } from './ollama';
 
 interface ExtractedMemory {
@@ -17,7 +17,7 @@ interface ExtractedMemory {
  * Called fire-and-forget after every turn.
  */
 export async function extractMemory(
-  chatId: string,
+  _chatId: string,
   userId: string,
   lastUserMessage: string,
   lastAssistantMessage: string
@@ -25,9 +25,7 @@ export async function extractMemory(
   return safeQuery(async () => {
     // 1. Load agent config for model
     const agentResult = await getAgentConfig(DEFAULT_AGENT_ID);
-    const model = agentResult.ok && agentResult.data 
-      ? agentResult.data.model 
-      : env.OLLAMA_MODEL;
+    const model = agentResult.ok && agentResult.data ? agentResult.data.model : env.OLLAMA_MODEL;
 
     // 2. Build extraction prompt
     const extractionPrompt = buildExtractionPrompt(lastUserMessage, lastAssistantMessage);
@@ -63,9 +61,13 @@ export async function extractMemory(
         });
 
         if (upsertResult.ok) {
-          console.log(`[memory-extractor] Upserted memory: [${entry.category}] ${entry.key}: ${entry.value}`);
+          console.log(
+            `[memory-extractor] Upserted memory: [${entry.category}] ${entry.key}: ${entry.value}`
+          );
         } else {
-          console.error(`[memory-extractor] Failed to upsert memory: ${upsertResult.error.message}`);
+          console.error(
+            `[memory-extractor] Failed to upsert memory: ${upsertResult.error.message}`
+          );
         }
       }
     }

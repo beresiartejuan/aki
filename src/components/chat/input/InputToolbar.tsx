@@ -8,11 +8,7 @@ interface InputToolbarProps {
   disabled?: boolean;
 }
 
-export function InputToolbar({
-  thinkingActive,
-  onToggleThinking,
-  disabled,
-}: InputToolbarProps) {
+export function InputToolbar({ thinkingActive, onToggleThinking, disabled }: InputToolbarProps) {
   const getButtonClasses = (isActive: boolean) => {
     if (isActive) {
       return 'h-8 w-8 rounded-lg bg-primary/20 text-primary border border-primary/40 ring-1 ring-primary/50 animate-pulse';

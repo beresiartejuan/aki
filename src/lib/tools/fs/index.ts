@@ -1,6 +1,7 @@
 // Re-export all filesystem operations
-export { readFile } from './read';
-export { writeFile } from './write';
+
+export { createDirectory, deleteDirectory, deleteFile, moveFile } from './directory';
 export { listDirectory } from './list';
-export { createDirectory, deleteFile, deleteDirectory, moveFile } from './directory';
+export { readFile } from './read';
 export { searchFiles } from './search';
+export { writeFile } from './write';

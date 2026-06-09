@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
-import { getChatById } from '../../db/queries/chats';
-import { runAgentTurn } from '../../lib/agent';
+import { getChatById } from '@/db/queries/chats';
+import { runAgentTurn } from '@/lib/agent';
 
 export const prerender = false;
 

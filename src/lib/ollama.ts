@@ -1,5 +1,5 @@
 import { Ollama } from 'ollama';
-import { env } from '../env';
+import { env } from '@/env';
 
 export const ollama = new Ollama({
   host: 'https://ollama.com',

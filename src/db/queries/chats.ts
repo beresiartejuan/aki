@@ -1,8 +1,8 @@
 import { desc, eq } from 'drizzle-orm';
-import { db } from '../index';
-import { type Result, safeQuery } from '../result';
-import type { Chat, InsertChat } from '../schema';
-import { chats, insertChatSchema, selectChatSchema } from '../schema';
+import { db } from '@/db';
+import { type Result, safeQuery } from '@/db/result';
+import type { Chat, InsertChat } from '@/db/schema';
+import { chats, insertChatSchema, selectChatSchema } from '@/db/schema';
 
 /**
  * Selects all chats for a user ordered by updatedAt DESC

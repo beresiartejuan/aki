@@ -2,7 +2,7 @@
 // Login page - redirects to home if already authenticated, or to setup if no users exist
 export const prerender = false;
 
-import { hasUsers } from '../db/queries/auth';
+import { hasUsers } from '@/db/queries/auth';
 
 const sessionId = Astro.cookies.get('sessionId')?.value;
 

@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../index';
-import { type Result, safeQuery } from '../result';
-import type { ChatSummary, InsertChatSummary } from '../schema';
-import { chatSummaries, insertChatSummarySchema, selectChatSummarySchema } from '../schema';
+import { db } from '@/db';
+import { type Result, safeQuery } from '@/db/result';
+import type { ChatSummary, InsertChatSummary } from '@/db/schema';
+import { chatSummaries, insertChatSummarySchema, selectChatSummarySchema } from '@/db/schema';
 
 /**
  * Gets the summary for a specific chat

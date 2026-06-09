@@ -1,9 +1,9 @@
 import type { APIRoute } from 'astro';
-import { db } from '../../../../db/index';
-import { chats, messages } from '../../../../db/schema';
-import { createChat, getChatById } from '../../../../db/queries/chats';
-import { getMessagesByChatId } from '../../../../db/queries/messages';
-import { DEFAULT_USER_ID } from '../../../../lib/constants';
+import { db } from '@/db';
+import { createChat, getChatById } from '@/db/queries/chats';
+import { getMessagesByChatId } from '@/db/queries/messages';
+import { messages } from '@/db/schema';
+import { DEFAULT_USER_ID } from '@/lib/constants';
 
 export const prerender = false;
 

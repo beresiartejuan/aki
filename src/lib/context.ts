@@ -1,11 +1,11 @@
-import { err, ok, type Result, safeQuery } from '../db/result';
-import type { AgentMemory, ChatSummary, Message } from '../db/schema';
-import { getAgentConfig } from '../db/queries/config';
-import { getMessagesByChatId } from '../db/queries/messages';
-import { getSummaryByChatId } from '../db/queries/summaries';
-import { getMemoryByUser } from '../db/queries/memory';
+import { getAgentConfig } from '@/db/queries/config';
+import { getMemoryByUser } from '@/db/queries/memory';
+import { getMessagesByChatId } from '@/db/queries/messages';
+import { getSummaryByChatId } from '@/db/queries/summaries';
+import { type Result, safeQuery } from '@/db/result';
+import type { AgentMemory, ChatSummary } from '@/db/schema';
+import { env } from '@/env';
 import { DEFAULT_AGENT_ID } from './constants';
-import { env } from '../env';
 
 // Constants for context management
 const RECENT_MESSAGES_LIMIT = 10;
@@ -37,10 +37,7 @@ export type BuiltContext = {
  * Builds the full context for an agent turn, including system prompt with
  * conversation summary and user memory injected.
  */
-export async function buildContext(
-  chatId: string,
-  userId: string
-): Promise<Result<BuiltContext>> {
+export async function buildContext(chatId: string, userId: string): Promise<Result<BuiltContext>> {
   return safeQuery(async () => {
     // 1. LOAD ALL MESSAGES for the chat
     const messagesResult = await getMessagesByChatId(chatId);
@@ -67,12 +64,10 @@ export async function buildContext(
     }
 
     // 4. DECIDE RECENT SLICE
-    const recentMessages = allMessages
-      .slice(-RECENT_MESSAGES_LIMIT)
-      .map((msg) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content,
-      }));
+    const recentMessages = allMessages.slice(-RECENT_MESSAGES_LIMIT).map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
 
     // 5. DETECT IF SUMMARIZATION IS NEEDED
     const shouldSummarize =
@@ -127,7 +122,9 @@ function buildSystemPrompt(
 
   // Add conversation summary section if available
   if (summary && summary.messagesCovered > 0 && summary.summary) {
-    sections.push(`\n## Conversation so far\nThe following is a summary of the earlier conversation with the user:\n${summary.summary}`);
+    sections.push(
+      `\n## Conversation so far\nThe following is a summary of the earlier conversation with the user:\n${summary.summary}`
+    );
   }
 
   // Add memory section if there are memories

@@ -1,20 +1,17 @@
-import { getMessagesByChatId } from '../db/queries/messages';
-import { getSummaryByChatId, upsertSummary } from '../db/queries/summaries';
-import { ok, type Result, safeQuery } from '../db/result';
-import type { Message } from '../db/schema';
-import { getAgentConfig } from '../db/queries/config';
+import { getAgentConfig } from '@/db/queries/config';
+import { getMessagesByChatId } from '@/db/queries/messages';
+import { getSummaryByChatId, upsertSummary } from '@/db/queries/summaries';
+import { type Result, safeQuery } from '@/db/result';
+import type { Message } from '@/db/schema';
+import { env } from '@/env';
 import { DEFAULT_AGENT_ID } from './constants';
-import { env } from '../env';
 import { ollama } from './ollama';
 
 /**
  * Summarizes a chat conversation and upserts the summary.
  * Called fire-and-forget after a turn completes.
  */
-export async function summarizeChat(
-  chatId: string,
-  userId: string
-): Promise<Result<void>> {
+export async function summarizeChat(chatId: string, _userId: string): Promise<Result<void>> {
   return safeQuery(async () => {
     // 1. Load ALL messages for the chat
     const messagesResult = await getMessagesByChatId(chatId);
@@ -32,13 +29,11 @@ export async function summarizeChat(
 
     // 2. Load existing summary if any
     const summaryResult = await getSummaryByChatId(chatId);
-    let existingSummary = summaryResult.ok ? summaryResult.data : undefined;
+    const existingSummary = summaryResult.ok ? summaryResult.data : undefined;
 
     // 3. Load agent config for model
     const agentResult = await getAgentConfig(DEFAULT_AGENT_ID);
-    const model = agentResult.ok && agentResult.data 
-      ? agentResult.data.model 
-      : env.OLLAMA_MODEL;
+    const model = agentResult.ok && agentResult.data ? agentResult.data.model : env.OLLAMA_MODEL;
 
     // 4. Build summarization prompt
     const summarizationPrompt = buildSummarizationPrompt(messages, existingSummary);
@@ -71,7 +66,9 @@ export async function summarizeChat(
       throw new Error(`Failed to upsert summary: ${upsertResult.error.message}`);
     }
 
-    console.log(`[summarizer] Updated summary for chat ${chatId}, covered ${totalMessages} messages`);
+    console.log(
+      `[summarizer] Updated summary for chat ${chatId}, covered ${totalMessages} messages`
+    );
   });
 }
 
@@ -95,9 +92,7 @@ function buildSummarizationPrompt(
     const newMessages = messages.slice(existingSummary.messagesCovered);
     if (newMessages.length > 0) {
       parts.push(`New messages to incorporate:`);
-      parts.push(
-        newMessages.map((m) => `[${m.role}]: ${m.content}`).join('\n')
-      );
+      parts.push(newMessages.map((m) => `[${m.role}]: ${m.content}`).join('\n'));
     }
   } else {
     parts.push(`\nMessages to summarize:`);

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { getMemoryByUser } from '../../../db/queries/memory';
-import { DEFAULT_USER_ID } from '../../../lib/constants';
+import { getMemoryByUser } from '@/db/queries/memory';
+import { DEFAULT_USER_ID } from '@/lib/constants';
 
 export const prerender = false;
 

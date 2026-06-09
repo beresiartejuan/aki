@@ -1,8 +1,8 @@
 import { desc, eq } from 'drizzle-orm';
-import { db } from '../index';
-import { type Result, safeQuery } from '../result';
-import type { AgentMemory, InsertAgentMemory } from '../schema';
-import { agentMemory, insertAgentMemorySchema, selectAgentMemorySchema } from '../schema';
+import { db } from '@/db';
+import { type Result, safeQuery } from '@/db/result';
+import type { AgentMemory, InsertAgentMemory } from '@/db/schema';
+import { agentMemory, insertAgentMemorySchema, selectAgentMemorySchema } from '@/db/schema';
 
 /**
  * Gets all memory entries for a user, ordered by lastSeenAt DESC

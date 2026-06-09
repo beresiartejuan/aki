@@ -1,6 +1,5 @@
-import type { Tool } from 'ollama';
 import { describe, expect, it } from 'vitest';
-import { TOOL_DEFINITIONS, type ToolName } from '../definitions';
+import { TOOL_DEFINITIONS, type ToolName } from '@/lib/tools/definitions';
 
 describe('definitions', () => {
   describe('TOOL_DEFINITIONS', () => {

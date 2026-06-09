@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../index';
-import { type Result, safeQuery } from '../result';
-import type { Attachment, InsertAttachment } from '../schema';
-import { attachments, insertAttachmentSchema, selectAttachmentSchema } from '../schema';
+import { db } from '@/db';
+import { type Result, safeQuery } from '@/db/result';
+import type { Attachment, InsertAttachment } from '@/db/schema';
+import { attachments, insertAttachmentSchema, selectAttachmentSchema } from '@/db/schema';
 
 /**
  * Get attachments by message ID
@@ -58,7 +58,9 @@ export function deleteAttachment(id: string): Promise<Result<{ deleted: boolean 
 /**
  * Delete all attachments for a message
  */
-export function deleteAttachmentsByMessage(messageId: string): Promise<Result<{ deleted: boolean }>> {
+export function deleteAttachmentsByMessage(
+  messageId: string
+): Promise<Result<{ deleted: boolean }>> {
   return safeQuery(async () => {
     await db.delete(attachments).where(eq(attachments.messageId, messageId));
     return { deleted: true };

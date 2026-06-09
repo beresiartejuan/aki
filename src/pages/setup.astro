@@ -2,7 +2,7 @@
 // Setup page - only accessible when no users exist
 export const prerender = false;
 
-import { hasUsers } from '../db/queries/auth';
+import { hasUsers } from '@/db/queries/auth';
 
 const usersExist = await hasUsers();
 

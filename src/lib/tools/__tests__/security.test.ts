@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCKED_PATTERNS, isBlockedCommand } from '../security';
+import { BLOCKED_PATTERNS, isBlockedCommand } from '@/lib/tools/security';
 
 describe('security tools', () => {
   describe('BLOCKED_PATTERNS', () => {

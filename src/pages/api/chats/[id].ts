@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { deleteChat, getChatById, updateChatTitle } from '../../../db/queries/chats';
+import { deleteChat, getChatById, updateChatTitle } from '@/db/queries/chats';
 
 export const prerender = false;
 
