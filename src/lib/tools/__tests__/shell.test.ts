@@ -92,12 +92,14 @@ describe('shell tools', () => {
 
     it('should handle command timeout', async () => {
       const { promisify } = await import('node:util');
-      const mockExecAsync = vi.fn().mockRejectedValue(new Error('command timed out after 15s'));
+      const mockExecAsync = vi
+        .fn()
+        .mockRejectedValue(new Error('command timed out after 5 minutes'));
       vi.mocked(promisify).mockReturnValue(mockExecAsync);
 
       const { runCommand } = await import('../shell');
-      const result = await runCommand('sleep 20');
-      expect(result).toContain('Error: command timed out after 15s');
+      const result = await runCommand('sleep 400');
+      expect(result).toContain('Error: command timed out after 5 minutes');
     });
 
     it('should truncate long output', async () => {

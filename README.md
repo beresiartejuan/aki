@@ -17,21 +17,23 @@
 
 ## 📖 Descripción
 
-Aki es un asistente de IA conversacional que puede interactuar con tu sistema de archivos y ejecutar comandos de forma segura. Construido con tecnologías modernas como Astro, React y TypeScript, ofrece una interfaz web intuitiva para comunicarte con modelos de IA locales.
+Aki es un asistente de IA conversacional con dos agentes especializados: **Aki** (conversacional) y **Makima** (ejecución de tareas). Puede interactuar con tu sistema de archivos completo, ejecutar comandos de shell, y realizar operaciones complejas delegadas automáticamente. Construido con tecnologías modernas como Astro, React y TypeScript.
 
 ### ✨ Características Principales
 
 - 🔐 **Autenticación Segura**: Sistema de login con sesiones y contraseñas hasheadas
-- 🗂️ **Manipulación de Archivos**: Leer, escribir, listar y buscar archivos
+- 🤖 **Dos Agentes**: Aki (conversacional) + Makima (ejecución de tareas del sistema)
+- 🗂️ **Manipulación de Archivos**: Leer, escribir, listar y buscar archivos en TODO el sistema
 - 📎 **Archivos Adjuntos**: Sube archivos hasta 6MB para compartir con el agente
 - 💻 **Ejecución de Comandos**: Ejecuta comandos de shell de forma segura
-- 🔒 **Sandbox Seguro**: Operaciones limitadas a un directorio de trabajo
+- 🌍 **Acceso Completo al Sistema**: Makima puede trabajar en cualquier directorio (sandbox opcional)
 - 🚀 **Streaming en Tiempo Real**: Respuestas de IA transmitidas en vivo
 - 💭 **Modo de Pensamiento**: Visualiza el razonamiento del modelo
 - 🎨 **Interfaz Moderna**: UI limpia con soporte para tema oscuro
 - 📤 **Chats Compartidos**: Genera links públicos para compartir conversaciones
 - 🔧 **Gestión de Chats**: Eliminar, renombrar, duplicar y exportar conversaciones
 - 🔔 **Notificaciones**: Feedback visual con toast notifications
+- 🏷️ **Status Chips**: Chips de estado en el chat para tareas delegadas a Makima
 
 ---
 
@@ -89,8 +91,14 @@ DB_PATH=./data/aki.db
 OLLAMA_API_KEY=tu_api_key_aqui
 OLLAMA_MODEL=qwen3.5
 
-# Directorio de trabajo
-WORKSPACE_ROOT=./workspace
+# Modelo para Makima (opcional, usa OLLAMA_MODEL por defecto)
+MAKIMA_MODEL=
+
+# Directorio base para rutas relativas (opcional, usa cwd por defecto)
+WORKSPACE_ROOT=
+
+# Modo sandbox — restringe operaciones a WORKSPACE_ROOT (false por defecto)
+ENABLE_SANDBOX=false
 
 # Directorio de uploads
 UPLOADS_DIR=./uploads
@@ -256,22 +264,47 @@ npx tsx scripts/setup-user.ts admin MiPasswordSegura123
 
 ---
 
+## 🤖 Pipeline de Agentes
+
+Aki utiliza un pipeline de **dos agentes** para maximizar la seguridad y la capacidad de acción:
+
+### Aki (Agente Conversacional)
+- Interactúa directamente con el usuario
+- No tiene acceso a herramientas del sistema
+- Cuando detecta que se necesita una acción del sistema, delega a Makima usando `@makima`
+
+### Makima (Agente de Ejecución)
+- Especializado en operar el sistema de archivos y ejecutar comandos
+- Tiene acceso a TODO el sistema de archivos del usuario (no está restringido a una carpeta)
+- Puede leer, escribir, crear, eliminar archivos y directorios en cualquier ruta
+- Ejecuta comandos de shell con timeout de 5 minutos
+- Reporta cada acción con markdown y emite resumen al finalizar
+- Trabaja en segundo plano sin bloquear la conversación con Aki
+
+### Flujo de Delegación
+1. Usuario pide una tarea del sistema (ej: "listá los archivos de mi home")
+2. Aki reconoce que necesita acceso al sistema y delega a Makima
+3. Makima ejecuta la tarea en background
+4. Aki informa al usuario con un resumen interpretativo de lo que Makima hizo
+
+---
+
 ## 🔧 Herramientas del Agente
 
-El agente tiene acceso a las siguientes herramientas para interactuar con el sistema:
+Makima tiene acceso a las siguientes herramientas para interactuar con todo el sistema:
 
-### Sistema de Archivos
-- `read_file` - Leer contenido de archivos
-- `write_file` - Escribir contenido en archivos
+### Sistema de Archivos (acceso completo al sistema)
+- `read_file` - Leer contenido de archivos en cualquier ruta
+- `write_file` - Escribir contenido en archivos (crea directorios si hace falta)
 - `list_directory` - Listar contenido de directorios
 - `create_directory` - Crear directorios
 - `delete_file` - Eliminar archivos
-- `delete_directory` - Eliminar directorios
-- `move_file` - Mover/renombrar archivos
+- `delete_directory` - Eliminar directorios recursivamente
+- `move_file` - Mover/renombrar archivos o directorios
 - `search_files` - Buscar archivos por patrón
 
 ### Shell
-- `run_command` - Ejecutar comandos en el workspace
+- `run_command` - Ejecutar comandos en cualquier directorio del sistema
 
 ---
 
@@ -283,15 +316,16 @@ El agente tiene acceso a las siguientes herramientas para interactuar con el sis
 - Expiración automática de sesiones en 7 días
 - Cleanup de sesiones expiradas
 
-### Sandbox de Archivos
-- Todas las operaciones están limitadas al directorio `WORKSPACE_ROOT`
-- Validación automática de rutas para prevenir acceso no autorizado
-- Límites de tamaño: archivos > 100KB se truncarán
-
 ### Ejecución de Comandos
 - Lista de comandos bloqueados (rm -rf /, sudo, curl, etc.)
-- Timeout automático de 15 segundos
-- Output limitado a 8000 caracteres
+- Timeout generoso de **5 minutos** para operaciones largas
+- Output limitado a **8000 caracteres** (truncado si excede)
+
+### Acceso al Sistema de Archivos
+- Por defecto, Makima puede acceder a **cualquier ruta del sistema**
+- Para restringir a un directorio específico, habilitá `ENABLE_SANDBOX=true`
+- Cuando el sandbox está activo, todas las operaciones están limitadas a `WORKSPACE_ROOT`
+- Protección contra eliminación del directorio raíz del sandbox
 
 ### Sanitización de Contenido
 - Markdown renderizado con rehype-sanitize para prevenir XSS

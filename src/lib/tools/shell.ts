@@ -23,11 +23,11 @@ export async function runCommand(command: string, workingDir?: string): Promise<
     const cwd = workingDir ?? WORKSPACE_ROOT;
     assertInsideSandbox(cwd);
 
-    // Execute with timeout and output limits
+    // Execute with generous timeout and output limits
     const { stdout, stderr } = await execAsync(command, {
       cwd,
-      timeout: 15000, // 15 seconds
-      maxBuffer: 1024 * 512, // 512KB
+      timeout: 300000, // 5 minutes — generous limit for long operations
+      maxBuffer: 1024 * 1024 * 2, // 2MB
       env: {
         ...process.env,
         PATH: process.env.PATH,
@@ -55,7 +55,7 @@ export async function runCommand(command: string, workingDir?: string): Promise<
   } catch (error) {
     // Handle timeout specifically
     if ((error as Error).message?.includes('timeout')) {
-      return 'Error: command timed out after 15s';
+      return 'Error: command timed out after 5 minutes';
     }
 
     // Handle errors with stderr
