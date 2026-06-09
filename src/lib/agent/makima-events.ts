@@ -20,6 +20,18 @@ export function emitMakimaAkiVerification(jobId: string, content: string) {
   emitter.emit(`job:${jobId}:aki_verification`, content);
 }
 
+export function emitMakimaToolStart(
+  jobId: string,
+  toolName: string,
+  args: Record<string, unknown>
+) {
+  emitter.emit(`job:${jobId}:tool_start`, { toolName, args });
+}
+
+export function emitMakimaToolEnd(jobId: string, toolName: string, result: string) {
+  emitter.emit(`job:${jobId}:tool_end`, { toolName, result });
+}
+
 export function onMakimaChunk(jobId: string, handler: (chunk: string) => void) {
   emitter.on(`job:${jobId}:chunk`, handler);
   return () => emitter.off(`job:${jobId}:chunk`, handler);
@@ -38,4 +50,20 @@ export function onMakimaError(jobId: string, handler: (msg: string) => void) {
 export function onMakimaAkiVerification(jobId: string, handler: (content: string) => void) {
   emitter.once(`job:${jobId}:aki_verification`, handler);
   return () => emitter.off(`job:${jobId}:aki_verification`, handler);
+}
+
+export function onMakimaToolStart(
+  jobId: string,
+  handler: (data: { toolName: string; args: Record<string, unknown> }) => void
+) {
+  emitter.on(`job:${jobId}:tool_start`, handler);
+  return () => emitter.off(`job:${jobId}:tool_start`, handler);
+}
+
+export function onMakimaToolEnd(
+  jobId: string,
+  handler: (data: { toolName: string; result: string }) => void
+) {
+  emitter.on(`job:${jobId}:tool_end`, handler);
+  return () => emitter.off(`job:${jobId}:tool_end`, handler);
 }
