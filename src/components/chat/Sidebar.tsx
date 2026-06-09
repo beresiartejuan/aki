@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
-import type { SidebarProps } from './sidebar/types';
-import { useUser } from './sidebar/hooks/useUser';
-import { useChatActions } from './sidebar/hooks/useChatActions';
-import { SidebarHeader } from './sidebar/SidebarHeader';
-import { SidebarFooter } from './sidebar/SidebarFooter';
+import { useCallback, useEffect, useState } from 'react';
 import { ChatList } from './sidebar/ChatList';
+import { useChatActions } from './sidebar/hooks/useChatActions';
+import { useUser } from './sidebar/hooks/useUser';
+import { SidebarFooter } from './sidebar/SidebarFooter';
+import { SidebarHeader } from './sidebar/SidebarHeader';
+import type { SidebarProps } from './sidebar/types';
 
 export default function Sidebar({
   onSelectChat,
@@ -35,6 +35,14 @@ export default function Sidebar({
   const [internalActiveChatId, setInternalActiveChatId] = useState<string | undefined>(undefined);
   const activeChatId = propActiveChatId ?? internalActiveChatId;
 
+  const handleChatClick = useCallback(
+    (chatId: string) => {
+      setInternalActiveChatId(chatId);
+      onSelectChat?.(chatId);
+    },
+    [onSelectChat]
+  );
+
   // Fetch chats on mount
   useEffect(() => {
     fetchChats().then((chats) => {
@@ -43,12 +51,7 @@ export default function Sidebar({
         handleChatClick(chats[0].id);
       }
     });
-  }, []);
-
-  const handleChatClick = useCallback((chatId: string) => {
-    setInternalActiveChatId(chatId);
-    onSelectChat?.(chatId);
-  }, [onSelectChat]);
+  }, [handleChatClick, fetchChats, activeChatId]);
 
   const handleNewChat = async () => {
     const newChat = await createChat();
@@ -78,7 +81,7 @@ export default function Sidebar({
   return (
     <aside className="flex flex-col h-full w-64 shrink-0 bg-surface border-r border-border">
       <SidebarHeader isCreating={isCreating} onNewChat={handleNewChat} />
-      
+
       <ChatList
         chats={chats}
         loading={loading}
@@ -95,7 +98,7 @@ export default function Sidebar({
         onRenameCancel={cancelRenaming}
         onEditingTitleChange={setEditingTitle}
       />
-      
+
       <SidebarFooter user={user} isLoggingOut={isLoggingOut} onLogout={logout} />
     </aside>
   );
