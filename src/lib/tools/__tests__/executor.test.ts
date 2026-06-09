@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
-import { executeTool } from '../executor';
-import * as fs from '../fs';
-import * as sh from '../shell';
+import type { ToolCall } from 'ollama';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { executeTool } from '@/lib/tools/executor';
 
-// Mock filesystem and shell modules
-vi.mock('../filesystem', () => ({
+// Mock filesystem module (imported as ./fs from executor.ts)
+vi.mock('../fs', () => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
   listDirectory: vi.fn(),
@@ -15,6 +14,7 @@ vi.mock('../filesystem', () => ({
   searchFiles: vi.fn(),
 }));
 
+// Mock shell module
 vi.mock('../shell', () => ({
   runCommand: vi.fn(),
 }));
@@ -30,7 +30,15 @@ vi.mock('../sandbox', () => ({
   assertSafeCommand: vi.fn(),
 }));
 
+// Import mocked modules
+import * as fs from '@/lib/tools/fs';
+import * as sh from '@/lib/tools/shell';
+
 describe('executor', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('executeTool', () => {
     it('should execute read_file tool', async () => {
       vi.mocked(fs.readFile).mockResolvedValue('file content');
@@ -40,7 +48,7 @@ describe('executor', () => {
           name: 'read_file',
           arguments: { filePath: '/workspace/file.txt' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('file content');
       expect(fs.readFile).toHaveBeenCalledWith('/workspace/file.txt');
@@ -54,7 +62,7 @@ describe('executor', () => {
           name: 'write_file',
           arguments: { filePath: '/workspace/file.txt', content: 'hello world' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('OK: wrote 12 characters');
       expect(fs.writeFile).toHaveBeenCalledWith('/workspace/file.txt', 'hello world');
@@ -68,7 +76,7 @@ describe('executor', () => {
           name: 'list_directory',
           arguments: { dirPath: '/workspace' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('file1.txt\nfile2.txt');
       expect(fs.listDirectory).toHaveBeenCalledWith('/workspace');
@@ -82,7 +90,7 @@ describe('executor', () => {
           name: 'create_directory',
           arguments: { dirPath: '/workspace/newdir' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('OK: directory created');
       expect(fs.createDirectory).toHaveBeenCalledWith('/workspace/newdir');
@@ -96,7 +104,7 @@ describe('executor', () => {
           name: 'delete_file',
           arguments: { filePath: '/workspace/file.txt' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('OK: deleted file');
       expect(fs.deleteFile).toHaveBeenCalledWith('/workspace/file.txt');
@@ -110,7 +118,7 @@ describe('executor', () => {
           name: 'delete_directory',
           arguments: { dirPath: '/workspace/dir' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('OK: deleted directory');
       expect(fs.deleteDirectory).toHaveBeenCalledWith('/workspace/dir');
@@ -124,7 +132,7 @@ describe('executor', () => {
           name: 'move_file',
           arguments: { sourcePath: '/workspace/old.txt', destPath: '/workspace/new.txt' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('OK: moved file');
       expect(fs.moveFile).toHaveBeenCalledWith('/workspace/old.txt', '/workspace/new.txt');
@@ -138,7 +146,7 @@ describe('executor', () => {
           name: 'search_files',
           arguments: { dirPath: '/workspace', pattern: 'result' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('/workspace/result1.txt\n/workspace/result2.txt');
       expect(fs.searchFiles).toHaveBeenCalledWith('/workspace', 'result');
@@ -152,7 +160,7 @@ describe('executor', () => {
           name: 'run_command',
           arguments: { command: 'ls -la', workingDir: '/workspace' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('command output');
       expect(sh.runCommand).toHaveBeenCalledWith('ls -la', '/workspace');
@@ -164,7 +172,7 @@ describe('executor', () => {
           name: 'read_file',
           arguments: {},
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('Error: filePath is required');
     });
@@ -175,7 +183,7 @@ describe('executor', () => {
           name: 'unknown_tool',
           arguments: {},
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('Error: unknown tool: unknown_tool');
     });
@@ -188,7 +196,7 @@ describe('executor', () => {
           name: 'read_file',
           arguments: { filePath: '/workspace/nonexistent/file.txt' },
         },
-      });
+      } as unknown as ToolCall);
 
       expect(result).toBe('Error: File not found');
     });

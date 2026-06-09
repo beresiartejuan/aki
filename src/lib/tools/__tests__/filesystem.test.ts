@@ -1,5 +1,5 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createDirectory,
@@ -10,10 +10,10 @@ import {
   readFile,
   searchFiles,
   writeFile,
-} from '../fs';
+} from '@/lib/tools/fs';
 
 // Mock fs module
-vi.mock('fs/promises', () => {
+vi.mock('node:fs/promises', () => {
   return {
     default: {
       stat: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock('fs/promises', () => {
 });
 
 // Mock the WORKSPACE_ROOT
-vi.mock('../sandbox', async () => {
+vi.mock('../sandbox', () => {
   return {
     WORKSPACE_ROOT: '/workspace',
     assertInsideSandbox: () => {},
@@ -52,19 +52,17 @@ describe('filesystem tools', () => {
   const testDirPath = '/workspace/dir';
 
   beforeEach(() => {
-    // Clear all mocks before each test
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    // Restore all mocks after each test
     vi.restoreAllMocks();
   });
 
   describe('readFile', () => {
     it('should read file content successfully', async () => {
       const mockContent = 'Hello, world!';
-      vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as any);
+      vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as unknown);
       vi.mocked(fs.readFile).mockResolvedValue(mockContent);
 
       const result = await readFile(testFilePath);
@@ -72,7 +70,7 @@ describe('filesystem tools', () => {
     });
 
     it('should return error for non-file paths', async () => {
-      vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as any);
+      vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as unknown);
 
       const result = await readFile(testFilePath);
       expect(result).toContain('Error: not a file');
@@ -86,25 +84,22 @@ describe('filesystem tools', () => {
     });
 
     it('should truncate large files', async () => {
-      const largeContent = 'a'.repeat(150 * 1024); // 150KB
-      const truncatedContent = 'a'.repeat(100 * 1024) + '\n[... file truncated at 100KB]';
+      const truncatedContent = `${'a'.repeat(100 * 1024)}\n[... file truncated at 100KB]`;
 
       vi.mocked(fs.stat).mockResolvedValue({
         isFile: () => true,
         size: 150 * 1024,
-      } as any);
+      } as unknown);
 
       const mockFd = {
         read: vi.fn().mockResolvedValue({}),
         close: vi.fn().mockResolvedValue(undefined),
       };
 
-      vi.mocked(fs.open).mockResolvedValue(mockFd as any);
+      vi.mocked(fs.open).mockResolvedValue(mockFd as unknown);
       vi.spyOn(Buffer, 'alloc').mockReturnValue(Buffer.from(truncatedContent));
 
-      // Mock the file open and read operations
       const result = await readFile(testFilePath);
-      // Since we're mocking, we'll just check it returns a string
       expect(typeof result).toBe('string');
     });
   });
@@ -142,9 +137,9 @@ describe('filesystem tools', () => {
           isDirectory: () => true,
           isSymbolicLink: () => false,
         },
-      ] as any);
+      ] as unknown);
 
-      vi.mocked(fs.stat).mockResolvedValue({ size: 1024 } as any);
+      vi.mocked(fs.stat).mockResolvedValue({ size: 1024 } as unknown);
 
       const result = await listDirectory(testDirPath);
       expect(result).toContain('file.txt');
@@ -177,7 +172,7 @@ describe('filesystem tools', () => {
 
   describe('deleteFile', () => {
     it('should delete file successfully', async () => {
-      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => false } as any);
+      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => false } as unknown);
       vi.mocked(fs.unlink).mockResolvedValue(undefined);
 
       const result = await deleteFile(testFilePath);
@@ -185,7 +180,7 @@ describe('filesystem tools', () => {
     });
 
     it('should return error for directories', async () => {
-      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
+      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as unknown);
 
       const result = await deleteFile(testDirPath);
       expect(result).toContain('Error: use delete_directory for directories');
@@ -236,11 +231,11 @@ describe('filesystem tools', () => {
           return [
             { name: 'test.txt', isFile: () => true, isDirectory: () => false },
             { name: 'subdir', isFile: () => false, isDirectory: () => true },
-          ] as any;
+          ] as unknown;
         } else if (dirPath === path.join('/workspace/search', 'subdir')) {
-          return [{ name: 'result.md', isFile: () => true, isDirectory: () => false }] as any;
+          return [{ name: 'result.md', isFile: () => true, isDirectory: () => false }] as unknown;
         }
-        return [] as any;
+        return [] as unknown;
       });
 
       const result = await searchFiles('/workspace/search', 'test');

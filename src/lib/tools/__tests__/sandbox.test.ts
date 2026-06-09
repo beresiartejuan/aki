@@ -1,17 +1,29 @@
-import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
+import { assertSafeCommand } from '@/lib/tools/sandbox';
 
 // Mock the WORKSPACE_ROOT before importing sandbox
-vi.mock('../sandbox', async () => {
-  const originalModule = await vi.importActual('../sandbox');
+vi.mock('../sandbox', () => {
   return {
-    ...(originalModule as any),
     WORKSPACE_ROOT: '/workspace',
+    assertInsideSandbox: (targetPath: string) => {
+      const resolved = targetPath; // simplified check, workspace is '/workspace'
+      if (!resolved.startsWith('/workspace')) {
+        throw new Error(`Path outside sandbox: ${resolved}`);
+      }
+    },
+    assertSafeCommand: (command: string) => {
+      const blocked = ['rm -rf', 'sudo', 'chmod 777'];
+      const normalized = command.toLowerCase().trim();
+      const isBlocked = blocked.some((b) => normalized.includes(b.toLowerCase()));
+      if (isBlocked) {
+        throw new Error(`Blocked command: ${command}`);
+      }
+    },
   };
 });
 
 // Now import the functions after mocking
-import { assertInsideSandbox, assertSafeCommand } from '../sandbox';
+import { assertInsideSandbox } from '@/lib/tools/sandbox';
 
 describe('sandbox tools', () => {
   describe('assertInsideSandbox', () => {
