@@ -15,6 +15,8 @@ import {
   emitMakimaChunk,
   emitMakimaDone,
   emitMakimaError,
+  emitMakimaToolEnd,
+  emitMakimaToolStart,
 } from './makima-events';
 
 const MAKIMA_PATTERN = /@makima\s+(.+)/s;
@@ -109,6 +111,12 @@ async function runMakimaInBackground(job: MakimaJob, chatId: string): Promise<vo
         chunkBuffer += chunk;
         emitMakimaChunk(job.id, chunk); // SSE inmediato
         scheduleFlush();
+      },
+      onToolStart: (toolName, args) => {
+        emitMakimaToolStart(job.id, toolName, args);
+      },
+      onToolEnd: (toolName, result) => {
+        emitMakimaToolEnd(job.id, toolName, result);
       },
       onDone: async (fullOutput) => {
         await flushBuffer();
