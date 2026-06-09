@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
-import { getChatById } from '../../../db/queries/chats';
-import { streamAgentTurn } from '../../../lib/agent';
-import { DEFAULT_USER_ID } from '../../../lib/constants';
+import { getChatById } from '@/db/queries/chats';
+import { streamAgentTurn } from '@/lib/agent';
+import { triggerMakimaIfNeeded } from '@/lib/agent/makima-runner';
+import { DEFAULT_USER_ID } from '@/lib/constants';
 
 export const prerender = false;
 
@@ -57,15 +58,35 @@ export const GET: APIRoute = async ({ request }) => {
       };
 
       try {
-        const result = await streamAgentTurn(chatId, DEFAULT_USER_ID, message, thinking, (chunk: StreamChunk) => {
-          if (chunk.content) send({ type: 'content', text: chunk.content });
-          if (chunk.thinking) send({ type: 'thinking', text: chunk.thinking });
-          if (chunk.toolCall) send({ type: 'tool_call', text: chunk.toolCall });
-        });
+        const result = await streamAgentTurn(
+          chatId,
+          DEFAULT_USER_ID,
+          message,
+          thinking,
+          (chunk: StreamChunk) => {
+            if (chunk.content) send({ type: 'content', text: chunk.content });
+            if (chunk.thinking) send({ type: 'thinking', text: chunk.thinking });
+            if (chunk.toolCall) send({ type: 'tool_call', text: chunk.toolCall });
+          }
+        );
 
         if (!result.ok) {
           send({ type: 'error', message: result.error.message });
         } else {
+          const { content, messageId } = result.data;
+
+          // Check if Aki delegated to Makima and fire background job
+          if (messageId) {
+            try {
+              const jobId = await triggerMakimaIfNeeded(content, chatId, message, messageId);
+              if (jobId) {
+                send({ type: 'makima_job_created', jobId });
+              }
+            } catch (err) {
+              console.error('[stream] Makima trigger failed:', err);
+            }
+          }
+
           send({ type: 'done' });
         }
       } catch (error) {

@@ -1,5 +1,4 @@
 import { ChevronDown, ChevronUp, Settings } from 'lucide-react';
-import * as React from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import MessageBubble from './MessageBubble';
 
@@ -11,12 +10,19 @@ interface Message {
   thinkingContent: string | null;
   inputTokens: number | null;
   outputTokens: number | null;
+  makimaJobId: string | null;
   createdAt: number;
+}
+
+interface MakimaJobLite {
+  id: string;
+  status: 'pending' | 'running' | 'done' | 'error';
 }
 
 interface MessageListProps {
   chatId: string;
   refreshKey: number;
+  onOpenMakimaPanel?: (jobId: string) => void;
 }
 
 export interface MessageListHandle {
@@ -41,10 +47,11 @@ function EmptyState() {
 }
 
 const MessageList = forwardRef<MessageListHandle, MessageListProps>(function MessageList(
-  { chatId, refreshKey },
+  { chatId, refreshKey, onOpenMakimaPanel },
   ref
 ) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [makimaJobs, setMakimaJobs] = useState<Map<string, MakimaJobLite>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +73,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
         thinkingContent: null,
         inputTokens: null,
         outputTokens: null,
+        makimaJobId: null,
         createdAt: Date.now(),
       };
       setMessages((prev) => [...prev, optimisticMessage]);
@@ -94,6 +102,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
     },
   }));
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional refetch trigger
   useEffect(() => {
     const fetchMessages = async () => {
       if (!chatId) return;
@@ -102,14 +111,25 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
       setError(null);
 
       try {
-        const response = await fetch(`/api/chats/${chatId}/messages`);
-        const data = await response.json();
+        const [messagesRes, jobsRes] = await Promise.all([
+          fetch(`/api/chats/${chatId}/messages`),
+          fetch(`/api/makima/jobs?chatId=${chatId}`),
+        ]);
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch messages');
+        const messagesData = await messagesRes.json();
+        const jobsData = jobsRes.ok ? await jobsRes.json() : [];
+
+        if (!messagesRes.ok) {
+          throw new Error(messagesData.error || 'Failed to fetch messages');
         }
 
-        setMessages(data);
+        setMessages(messagesData);
+
+        const jobsMap = new Map<string, MakimaJobLite>();
+        for (const job of jobsData) {
+          jobsMap.set(job.id, job);
+        }
+        setMakimaJobs(jobsMap);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Error al cargar mensajes';
         setError(errorMessage);
@@ -121,17 +141,6 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
 
     fetchMessages();
   }, [chatId, refreshKey]);
-
-  // Group messages into conversation turns (user + assistant pairs)
-  const turns: { user?: Message; assistant?: Message }[] = [];
-
-  messages.forEach((msg) => {
-    if (msg.role === 'user') {
-      turns.push({ user: msg });
-    } else if (msg.role === 'assistant' && turns.length > 0) {
-      turns[turns.length - 1].assistant = msg;
-    }
-  });
 
   if (loading) {
     return (
@@ -169,38 +178,45 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin px-6 pt-8 pb-4">
-      <div className="max-w-3xl mx-auto w-full pb-0">
-        {turns.map((turn, index) => (
-          <div key={index} className="mb-6">
-            {/* User message */}
-            {turn.user && (
+      <div className="max-w-3xl mx-auto w-full pb-0 space-y-6">
+        {messages.map((msg) => {
+          if (msg.role === 'user') {
+            return (
               <MessageBubble
-                role="user"
-                content={turn.user.content}
-                timestamp={new Date(turn.user.createdAt).toLocaleTimeString([], {
+                key={msg.id}
+                senderRole="user"
+                content={msg.content}
+                timestamp={new Date(msg.createdAt).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
-                thinking={turn.user.thinkingContent}
+                thinking={msg.thinkingContent}
               />
-            )}
+            );
+          }
 
-            {/* Assistant message - close to user message */}
-            {turn.assistant && (
-              <div className="mt-2">
+          if (msg.role === 'assistant') {
+            const job = msg.makimaJobId ? makimaJobs.get(msg.makimaJobId) : undefined;
+            return (
+              <div key={msg.id} className="mt-2">
                 <MessageBubble
-                  role="assistant"
-                  content={turn.assistant.content}
-                  timestamp={new Date(turn.assistant.createdAt).toLocaleTimeString([], {
+                  senderRole="assistant"
+                  content={msg.content}
+                  timestamp={new Date(msg.createdAt).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
-                  thinking={turn.assistant.thinkingContent}
+                  thinking={msg.thinkingContent}
+                  makimaJobId={msg.makimaJobId}
+                  makimaJobStatus={job?.status}
+                  onOpenMakimaPanel={onOpenMakimaPanel}
                 />
               </div>
-            )}
-          </div>
-        ))}
+            );
+          }
+
+          return null;
+        })}
 
         {/* Streaming assistant message */}
         {isStreaming && (
@@ -209,6 +225,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
             {streamingToolCalls.length > 0 && showToolCalls && (
               <div className="mb-3">
                 <button
+                  type="button"
                   onClick={() => setShowToolCalls(!showToolCalls)}
                   className="flex items-center gap-2 w-full text-left text-sm text-muted-foreground hover:text-foreground transition-colors duration-150 p-2 rounded-lg hover:bg-surface"
                 >
@@ -223,8 +240,8 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
 
                 {showToolCalls && (
                   <div className="bg-surface/50 border border-border/40 rounded-lg p-3 mt-1 space-y-1">
-                    {streamingToolCalls.map((toolCall, idx) => (
-                      <div key={idx} className="font-mono text-xs text-muted-foreground">
+                    {streamingToolCalls.map((toolCall) => (
+                      <div key={toolCall} className="font-mono text-xs text-muted-foreground">
                         {toolCall}
                       </div>
                     ))}
@@ -235,7 +252,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
 
             <div className="mt-2">
               <MessageBubble
-                role="assistant"
+                senderRole="assistant"
                 content={streamingContent}
                 thinking={streamingThinking}
                 isStreaming={true}

@@ -16,7 +16,9 @@ interface ChatInputProps {
   onStreamThinking?: (thinking: string) => void;
   onStreamToolCall?: (toolCall: string) => void;
   onStreamEnd?: () => void;
+  onMakimaJobCreated?: (jobId: string) => void;
   disabled?: boolean;
+  disabledReason?: string;
 }
 
 export default function ChatInput({
@@ -28,19 +30,23 @@ export default function ChatInput({
   onStreamThinking,
   onStreamToolCall,
   onStreamEnd,
+  onMakimaJobCreated,
   disabled = false,
+  disabledReason = 'Escribe un mensaje...',
 }: ChatInputProps) {
   const [thinkingActive, setThinkingActive] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { textareaRef, resetHeight } = useAutoResizeTextarea(inputValue);
 
   const toggleThinking = () => setThinkingActive((prev) => !prev);
 
+  const isDisabled = loading || disabled;
+
   const handleSend = async () => {
-    if (inputValue.trim() === '' || loading || disabled) return;
+    if (inputValue.trim() === '' || isDisabled) return;
 
     const messageToSend = inputValue.trim();
     setLoading(true);
@@ -81,6 +87,8 @@ export default function ChatInput({
           setLoading(false);
           onStreamEnd?.();
           onMessageSent();
+        } else if (data.type === 'makima_job_created') {
+          onMakimaJobCreated?.(data.jobId);
         } else if (data.type === 'error') {
           source.close();
           setLoading(false);
@@ -89,7 +97,7 @@ export default function ChatInput({
           toast.error(errorMessage);
           onStreamEnd?.();
         }
-      } catch (err) {
+      } catch (_err) {
         // Ignore parsing errors
       }
     };
@@ -111,13 +119,16 @@ export default function ChatInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (inputValue.trim() !== '' && !loading && !disabled) {
+      if (inputValue.trim() !== '' && !isDisabled) {
         handleSend();
       }
     }
   };
 
-  const isSendDisabled = inputValue.trim() === '' || loading || disabled;
+  const getPlaceholder = () => {
+    if (isDisabled && disabledReason !== 'Escribe un mensaje...') return disabledReason;
+    return 'Escribe un mensaje...';
+  };
 
   const getButtonClasses = (isActive: boolean, isThinking = false) => {
     if (isActive) {
@@ -125,6 +136,8 @@ export default function ChatInput({
     }
     return 'h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-150';
   };
+
+  const isSendDisabled = inputValue.trim() === '' || isDisabled;
 
   return (
     <TooltipProvider>
@@ -135,11 +148,11 @@ export default function ChatInput({
             <div className="px-4 pt-3">
               <Textarea
                 ref={textareaRef}
-                placeholder="Escribe un mensaje..."
+                placeholder={getPlaceholder()}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                disabled={loading || disabled}
+                disabled={isDisabled}
                 className="min-h-[44px] max-h-[200px] w-full bg-transparent text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-0 focus:border-none border-0 p-0 shadow-none overflow-y-hidden"
                 style={{ minHeight: '44px' }}
                 rows={1}

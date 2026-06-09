@@ -1,10 +1,10 @@
 import { Check, Copy } from 'lucide-react';
+import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ShikiHighlighter, { rehypeInlineCodeProperty } from 'react-shiki';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
-import type { ComponentProps } from 'react';
 
 interface MarkdownRendererProps {
   content: string;
@@ -27,15 +27,12 @@ function CopyCodeButton({ code }: { code: string }) {
 
   return (
     <button
+      type="button"
       onClick={handleCopy}
       className="text-muted-foreground hover:text-primary transition-colors duration-150"
       title="Copiar código"
     >
-      {copied ? (
-        <Check className="h-3.5 w-3.5" />
-      ) : (
-        <Copy className="h-3.5 w-3.5" />
-      )}
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   );
 }
@@ -124,9 +121,7 @@ const components: ComponentProps<typeof ReactMarkdown>['components'] = {
       </table>
     </div>
   ),
-  thead: ({ children }) => (
-    <thead className="bg-surface text-muted-foreground">{children}</thead>
-  ),
+  thead: ({ children }) => <thead className="bg-surface text-muted-foreground">{children}</thead>,
   th: ({ children }) => (
     <th className="px-4 py-2 text-left font-medium border-b border-border">{children}</th>
   ),

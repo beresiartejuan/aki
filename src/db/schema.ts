@@ -1,4 +1,4 @@
-import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import type { z } from 'zod';
 
@@ -70,6 +70,7 @@ export const messages = sqliteTable('messages', {
   thinkingContent: text('thinking_content'), // stores chain-of-thought if thinking was on
   inputTokens: integer('input_tokens'), // nullable
   outputTokens: integer('output_tokens'), // nullable
+  makimaJobId: text('makima_job_id'), // FK to makima_jobs.id when Aki delegated
   createdAt: integer('created_at')
     .notNull()
     .$defaultFn(() => Date.now()),
@@ -119,27 +120,31 @@ export const chatSummaries = sqliteTable('chat_summaries', {
 });
 
 // Agent memory table - stores structured facts across all conversations
-export const agentMemory = sqliteTable('agent_memory', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  category: text('category').notNull(), // "preference" | "fact" | "decision" | "goal" | "context"
-  key: text('key').notNull(),
-  value: text('value').notNull(),
-  confidence: real('confidence').notNull().default(1.0),
-  lastSeenAt: integer('last_seen_at')
-    .notNull()
-    .$defaultFn(() => Date.now()),
-  createdAt: integer('created_at')
-    .notNull()
-    .$defaultFn(() => Date.now()),
-}, (table) => ({
-  // Unique index on (userId, key) for upsert operations
-  userKeyIdx: uniqueIndex('user_key_idx').on(table.userId, table.key),
-}));
+export const agentMemory = sqliteTable(
+  'agent_memory',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    category: text('category').notNull(), // "preference" | "fact" | "decision" | "goal" | "context"
+    key: text('key').notNull(),
+    value: text('value').notNull(),
+    confidence: real('confidence').notNull().default(1.0),
+    lastSeenAt: integer('last_seen_at')
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    createdAt: integer('created_at')
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => ({
+    // Unique index on (userId, key) for upsert operations
+    userKeyIdx: uniqueIndex('user_key_idx').on(table.userId, table.key),
+  })
+);
 
 // Zod schemas for chatSummaries
 export const insertChatSummarySchema = createInsertSchema(chatSummaries);
@@ -218,3 +223,38 @@ export const insertAgentMemorySchema = createInsertSchema(agentMemory);
 export const selectAgentMemorySchema = createSelectSchema(agentMemory);
 export type AgentMemory = z.infer<typeof selectAgentMemorySchema>;
 export type InsertAgentMemory = z.infer<typeof insertAgentMemorySchema>;
+
+// Makima jobs table - tracks delegated tasks from Aki to Makima
+export const makimaJobs = sqliteTable(
+  'makima_jobs',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    chatId: text('chat_id')
+      .notNull()
+      .references(() => chats.id, { onDelete: 'cascade' }),
+    triggerMessageId: text('trigger_message_id'),
+    prompt: text('prompt').notNull(),
+    userMessage: text('user_message').notNull(),
+    status: text('status', { enum: ['pending', 'running', 'done', 'error'] })
+      .notNull()
+      .default('pending'),
+    fullOutput: text('full_output').default(''),
+    lastOutputChunk: text('last_output_chunk').default(''),
+    akiVerification: text('aki_verification').default(''),
+    createdAt: integer('created_at')
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    finishedAt: integer('finished_at'),
+  },
+  (table) => ({
+    chatIdIdx: index('makima_jobs_chat_id_idx').on(table.chatId),
+  })
+);
+
+// Zod schemas for makimaJobs
+export const insertMakimaJobSchema = createInsertSchema(makimaJobs);
+export const selectMakimaJobSchema = createSelectSchema(makimaJobs);
+export type MakimaJob = z.infer<typeof selectMakimaJobSchema>;
+export type InsertMakimaJob = z.infer<typeof insertMakimaJobSchema>;

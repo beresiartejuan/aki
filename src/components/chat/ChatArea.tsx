@@ -1,35 +1,44 @@
-import { useState, useRef, useEffect } from 'react';
-import { toast } from 'sonner';
-import ChatInput from './ChatInput';
-import MessageList, { type MessageListHandle } from './MessageList';
+import { useEffect, useRef, useState } from 'react';
+import { useMakimaJobStatus } from '@/hooks/useMakimaJobStatus';
 import { ChatHeader } from './ChatHeader';
+import ChatInput from './ChatInput';
 import { useChatActions } from './hooks/useChatActions';
+import MessageList, { type MessageListHandle } from './MessageList';
 
 interface ChatAreaProps {
   chatId?: string;
   onChatDeleted?: (chatId: string) => void;
+  onOpenMakimaPanel?: (jobId: string) => void;
 }
 
-export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
+export default function ChatArea({ chatId, onChatDeleted, onOpenMakimaPanel }: ChatAreaProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [chatTitle, setChatTitle] = useState('Nueva conversación');
   const [projectTag, setProjectTag] = useState<string | null>(null);
+  const [activeMakimaJobId, setActiveMakimaJobId] = useState<string | null>(null);
   const messageListRef = useRef<MessageListHandle>(null);
 
-  const {
-    isDeleting,
-    isRenaming,
-    isExporting,
-    deleteChat,
-    renameChat,
-    exportChat,
-    shareChat,
-  } = useChatActions({
-    chatId,
-    chatTitle,
-    onChatDeleted,
-    onTitleUpdated: setChatTitle,
-  });
+  const makimaStatus = useMakimaJobStatus(activeMakimaJobId);
+
+  // Auto-refresh chat messages when Makima finishes
+  useEffect(() => {
+    if (makimaStatus === 'done' || makimaStatus === 'error') {
+      setRefreshKey((prev) => prev + 1);
+      // Clear the tracked job after a delay so the chip stays visible for a bit
+      const timeout = setTimeout(() => {
+        setActiveMakimaJobId(null);
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [makimaStatus]);
+
+  const { isDeleting, isRenaming, isExporting, deleteChat, renameChat, exportChat, shareChat } =
+    useChatActions({
+      chatId,
+      chatTitle,
+      onChatDeleted,
+      onTitleUpdated: setChatTitle,
+    });
 
   const handleMessageSent = () => {
     setRefreshKey((prev) => prev + 1);
@@ -59,6 +68,10 @@ export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
     messageListRef.current?.stopStreaming();
   };
 
+  const handleMakimaJobCreated = (jobId: string) => {
+    setActiveMakimaJobId(jobId);
+  };
+
   // Fetch chat details
   useEffect(() => {
     const fetchChatDetails = async () => {
@@ -82,7 +95,7 @@ export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
     };
 
     fetchChatDetails();
-  }, [chatId, refreshKey]);
+  }, [chatId]);
 
   if (!chatId) {
     return (
@@ -108,7 +121,12 @@ export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
         onDelete={deleteChat}
       />
 
-      <MessageList ref={messageListRef} chatId={chatId} refreshKey={refreshKey} />
+      <MessageList
+        ref={messageListRef}
+        chatId={chatId}
+        refreshKey={refreshKey}
+        onOpenMakimaPanel={onOpenMakimaPanel}
+      />
 
       <ChatInput
         chatId={chatId}
@@ -119,6 +137,8 @@ export default function ChatArea({ chatId, onChatDeleted }: ChatAreaProps) {
         onStreamThinking={handleStreamThinking}
         onStreamToolCall={handleStreamToolCall}
         onStreamEnd={handleStreamEnd}
+        onMakimaJobCreated={handleMakimaJobCreated}
+        disabled={makimaStatus === 'running' || makimaStatus === 'pending'}
       />
     </div>
   );

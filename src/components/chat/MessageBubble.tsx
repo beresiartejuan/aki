@@ -1,32 +1,40 @@
 import { Brain, Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
-import type * as React from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import MakimaChip from './MakimaChip';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface MessageBubbleProps {
-  role: 'user' | 'assistant';
+  senderRole: 'user' | 'assistant';
   content: string;
   timestamp?: string;
   thinking?: string | null;
   isStreaming?: boolean;
+  makimaJobId?: string | null;
+  makimaJobStatus?: 'pending' | 'running' | 'done' | 'error';
+  onOpenMakimaPanel?: (jobId: string) => void;
+}
+
+const MAKIMA_PATTERN = /@makima\s+(.+)/s;
+
+function stripMakimaTag(content: string): string {
+  return content.replace(MAKIMA_PATTERN, '').trim();
 }
 
 // User messages stay as plain text - no markdown rendering
 function UserMessageContent({ content }: { content: string }) {
-  return (
-    <div className="text-[15px] leading-7 text-foreground whitespace-pre-wrap">
-      {content}
-    </div>
-  );
+  return <div className="text-[15px] leading-7 text-foreground whitespace-pre-wrap">{content}</div>;
 }
 
 export default function MessageBubble({
-  role,
+  senderRole,
   content,
   timestamp,
   thinking,
   isStreaming,
+  makimaJobId,
+  makimaJobStatus,
+  onOpenMakimaPanel,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
@@ -36,7 +44,7 @@ export default function MessageBubble({
       await navigator.clipboard.writeText(content);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch (err) {
+    } catch (_err) {
       // Silently fail
     }
   };
@@ -45,7 +53,7 @@ export default function MessageBubble({
     ? 'h-6 w-6 text-primary'
     : 'h-6 w-6 text-muted-foreground hover:text-foreground';
 
-  if (role === 'user') {
+  if (senderRole === 'user') {
     return (
       <div className="group relative mb-2 w-full">
         {/* User message - soft card with proper left border accent */}
@@ -91,6 +99,7 @@ export default function MessageBubble({
         {thinking && (
           <div className="mb-3">
             <button
+              type="button"
               onClick={() => setShowThinking(!showThinking)}
               className="flex items-center gap-2 w-full text-left text-sm text-muted-foreground hover:text-foreground transition-colors duration-150 p-2 rounded-lg hover:bg-surface"
             >
@@ -130,11 +139,15 @@ export default function MessageBubble({
 
         {/* Message content */}
         <div className="text-[15px] leading-7 text-foreground pr-10">
-          <MarkdownRenderer content={content} streaming={isStreaming} />
+          <MarkdownRenderer content={stripMakimaTag(content)} streaming={isStreaming} />
           {isStreaming && (
             <span className="inline-block w-2 h-4 bg-primary/60 ml-1 animate-pulse" />
           )}
         </div>
+        {/* Makima chip */}
+        {makimaJobId && onOpenMakimaPanel && (
+          <MakimaChip jobId={makimaJobId} status={makimaJobStatus} onOpen={onOpenMakimaPanel} />
+        )}
 
         {/* Timestamp - appears on hover (only when not streaming) */}
         {timestamp && !isStreaming && (

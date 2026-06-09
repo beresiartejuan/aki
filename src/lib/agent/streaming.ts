@@ -1,16 +1,12 @@
-import { getChatById, updateChatTitle } from '../../db/queries/chats';
-import { createMessage } from '../../db/queries/messages';
-import { safeQuery } from '../../db/result';
-import { ollama } from '../ollama';
-import { TOOL_DEFINITIONS } from '../tools/definitions';
-import { executeTool } from '../tools/executor';
-import { buildContext } from '../context';
-import { summarizeChat } from '../summarizer';
-import { extractMemory } from '../memory-extractor';
+import { getChatById, updateChatTitle } from '@/db/queries/chats';
+import { createMessage } from '@/db/queries/messages';
+import { safeQuery } from '@/db/result';
+import { buildContext } from '@/lib/context';
+import { extractMemory } from '@/lib/memory-extractor';
+import { ollama } from '@/lib/ollama';
+import { summarizeChat } from '@/lib/summarizer';
 import { loadAgentConfig } from './config';
 import type { OllamaMessage } from './types';
-
-const MAX_ITERATIONS = 8;
 
 export async function streamAgentTurn(
   chatId: string,
@@ -40,86 +36,49 @@ export async function streamAgentTurn(
     }
 
     const config = await loadAgentConfig();
-    
+
     const messages: OllamaMessage[] = [
       { role: 'system', content: systemPrompt },
       ...recentMessages,
       { role: 'user', content: userContent },
     ];
 
-    let finalContent = '';
-    let finalThinking: string | null = null;
+    let fullContent = '';
+    let fullThinking: string | null = null;
 
-    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-      let fullContent = '';
-      let fullThinking: string | null = null;
-      let toolCalls: { function: { name: string; arguments: Record<string, unknown> } }[] = [];
+    const stream = await ollama.chat({
+      model: config.model,
+      messages,
+      think: thinkingEnabled || config.thinkingConfig,
+      stream: true,
+      options: {
+        temperature: config.temperature,
+        num_predict: config.maxTokens,
+      },
+    });
 
-      const stream = await ollama.chat({
-        model: config.model,
-        messages,
-        think: thinkingEnabled || config.thinkingConfig,
-        stream: true,
-        tools: TOOL_DEFINITIONS,
-        options: {
-          temperature: config.temperature,
-          num_predict: config.maxTokens,
-        },
-      });
-
-      for await (const chunk of stream) {
-        if (chunk.message.content) {
-          fullContent += chunk.message.content;
-          onChunk({ content: chunk.message.content });
-        }
-        if (chunk.message.thinking) {
-          fullThinking = (fullThinking ?? '') + chunk.message.thinking;
-          onChunk({ thinking: chunk.message.thinking });
-        }
-        if (chunk.message.tool_calls) {
-          toolCalls = [...toolCalls, ...chunk.message.tool_calls];
-        }
+    for await (const chunk of stream) {
+      if (chunk.message.content) {
+        fullContent += chunk.message.content;
+        onChunk({ content: chunk.message.content });
       }
-
-      finalContent = fullContent;
-      finalThinking = fullThinking;
-
-      messages.push({
-        role: 'assistant',
-        content: fullContent,
-        tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-      });
-
-      if (toolCalls.length === 0) {
-        break;
-      }
-
-      // Execute tool calls
-      for (const call of toolCalls) {
-        onChunk({
-          toolCall: `⚙ ${call.function.name}(${JSON.stringify(call.function.arguments)})`,
-        });
-
-        const result = await executeTool(call);
-
-        onChunk({
-          toolCall: `✓ ${call.function.name}: ${result.slice(0, 120)}`,
-        });
-
-        messages.push({
-          role: 'tool',
-          tool_name: call.function.name,
-          content: result,
-        });
+      if (chunk.message.thinking) {
+        fullThinking = (fullThinking ?? '') + chunk.message.thinking;
+        onChunk({ thinking: chunk.message.thinking });
       }
     }
+
+    messages.push({
+      role: 'assistant',
+      content: fullContent,
+    });
 
     // Persist final message
     const assistantMessageResult = await createMessage({
       chatId,
       role: 'assistant',
-      content: finalContent,
-      thinkingContent: finalThinking,
+      content: fullContent,
+      thinkingContent: fullThinking,
       createdAt: Date.now(),
     });
 
@@ -129,24 +88,24 @@ export async function streamAgentTurn(
       );
     }
 
+    const savedMessageId = assistantMessageResult.data.id;
+
     // Update chat title
     const chatResult = await getChatById(chatId);
     if (chatResult.ok && chatResult.data?.title === 'Nueva conversación') {
-      const title = userContent.split(' ').slice(0, 5).join(' ') + '...';
+      const title = `${userContent.split(' ').slice(0, 5).join(' ')}...`;
       await updateChatTitle(chatId, title);
     }
 
     // Background tasks
     if (shouldSummarize) {
-      summarizeChat(chatId, userId).catch((err) =>
-        console.error('[summarizer] failed:', err)
-      );
+      summarizeChat(chatId, userId).catch((err) => console.error('[summarizer] failed:', err));
     }
 
-    extractMemory(chatId, userId, userContent, finalContent).catch((err) =>
+    extractMemory(chatId, userId, userContent, fullContent).catch((err) =>
       console.error('[memory-extractor] failed:', err)
     );
 
-    return { content: finalContent, thinking: finalThinking };
+    return { content: fullContent, thinking: fullThinking, messageId: savedMessageId };
   });
 }

@@ -1,8 +1,8 @@
 import { asc, eq } from 'drizzle-orm';
-import { db } from '../index';
-import { type Result, safeQuery } from '../result';
-import type { InsertMessage, Message } from '../schema';
-import { insertMessageSchema, messages, selectMessageSchema } from '../schema';
+import { db } from '@/db';
+import { type Result, safeQuery } from '@/db/result';
+import type { InsertMessage, Message } from '@/db/schema';
+import { insertMessageSchema, messages, selectMessageSchema } from '@/db/schema';
 
 /**
  * Selects all messages for a chat ordered by createdAt ASC
@@ -46,6 +46,24 @@ export function createMessage(data: InsertMessage): Promise<Result<Message>> {
     const result = await db.insert(messages).values(validatedData).returning();
 
     // Validate result with Zod schema
+    return selectMessageSchema.parse(result[0]);
+  });
+}
+
+/**
+ * Update the makimaJobId of a message
+ */
+export function updateMessageMakimaJobId(
+  messageId: string,
+  makimaJobId: string
+): Promise<Result<Message>> {
+  return safeQuery(async () => {
+    const result = await db
+      .update(messages)
+      .set({ makimaJobId })
+      .where(eq(messages.id, messageId))
+      .returning();
+
     return selectMessageSchema.parse(result[0]);
   });
 }
