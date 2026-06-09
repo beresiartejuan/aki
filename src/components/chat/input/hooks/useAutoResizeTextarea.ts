@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 
-export function useAutoResizeTextarea(value: string, maxHeight = 200) {
+export function useAutoResizeTextarea(_value: string, maxHeight = 200) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: _value intentionally triggers resize
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -15,7 +16,7 @@ export function useAutoResizeTextarea(value: string, maxHeight = 200) {
         textareaRef.current.style.overflowY = 'hidden';
       }
     }
-  }, [value, maxHeight]);
+  }, [_value, maxHeight]);
 
   const resetHeight = () => {
     if (textareaRef.current) {

@@ -1,9 +1,9 @@
-import crypto from 'crypto';
-import { eq, and, gt } from 'drizzle-orm';
-import { db } from '../index';
-import { type Result, safeQuery } from '../result';
-import type { InsertSharedChat, SharedChat } from '../schema';
-import { insertSharedChatSchema, selectSharedChatSchema, sharedChats } from '../schema';
+import crypto from 'node:crypto';
+import { and, eq, gt, lt } from 'drizzle-orm';
+import { db } from '@/db';
+import { type Result, safeQuery } from '@/db/result';
+import type { InsertSharedChat, SharedChat } from '@/db/schema';
+import { insertSharedChatSchema, selectSharedChatSchema, sharedChats } from '@/db/schema';
 
 /**
  * Generate a unique hash for sharing
@@ -73,10 +73,7 @@ export function getSharedChatByChatId(chatId: string): Promise<Result<SharedChat
  */
 export function deactivateSharedChat(chatId: string): Promise<Result<{ updated: boolean }>> {
   return safeQuery(async () => {
-    await db
-      .update(sharedChats)
-      .set({ isActive: 0 })
-      .where(eq(sharedChats.chatId, chatId));
+    await db.update(sharedChats).set({ isActive: 0 }).where(eq(sharedChats.chatId, chatId));
     return { updated: true };
   });
 }
@@ -87,10 +84,7 @@ export function deactivateSharedChat(chatId: string): Promise<Result<{ updated: 
 export function cleanupExpiredShares(): Promise<Result<{ deleted: number }>> {
   return safeQuery(async () => {
     const now = Date.now();
-    const result = await db
-      .delete(sharedChats)
-      .where(gt(sharedChats.expiresAt, now))
-      .returning();
+    const result = await db.delete(sharedChats).where(lt(sharedChats.expiresAt, now)).returning();
     return { deleted: result.length };
   });
 }
