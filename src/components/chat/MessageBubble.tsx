@@ -87,11 +87,13 @@ export default function MessageBubble({
   // Assistant message
   return (
     <div className="group relative flex gap-3">
-      {/* Assistant avatar - lighter, less dominant */}
-      <div className="opacity-90">
-        <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center shrink-0 self-start mt-0.5">
-          <span className="text-black text-xs font-semibold">A</span>
-        </div>
+      {/* Assistant avatar - Aki profile picture */}
+      <div className="opacity-90 shrink-0 self-start mt-0.5">
+        <img
+          src="/aki_profile_picture (1).png"
+          alt="Aki"
+          className="w-7 h-7 rounded-md object-cover border border-border/30"
+        />
       </div>
 
       <div className="flex-1 min-w-0">
