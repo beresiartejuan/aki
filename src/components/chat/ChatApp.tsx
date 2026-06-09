@@ -20,7 +20,7 @@ export default function ChatApp() {
         onSelectChat={setActiveChatId}
         onNewChat={setActiveChatId}
       />
-      <div className="flex-1 min-w-0 flex">
+      <div className="flex-1 min-w-0 flex relative">
         <div className="flex-1 min-w-0">
           <ChatArea chatId={activeChatId} onOpenMakimaPanel={handleOpenMakimaPanel} />
         </div>
