@@ -26,8 +26,10 @@ export async function runMakimaAgent(params: {
   onChunk: (chunk: string) => void;
   onDone: (lastChunk: string) => void;
   onError: (error: Error) => void;
+  onToolStart?: (toolName: string, args: Record<string, unknown>) => void;
+  onToolEnd?: (toolName: string, result: string) => void;
 }): Promise<void> {
-  const { prompt, userMessage, onChunk, onDone, onError } = params;
+  const { prompt, userMessage, onChunk, onDone, onError, onToolStart, onToolEnd } = params;
 
   try {
     const messages: OllamaMessage[] = [
@@ -78,7 +80,11 @@ export async function runMakimaAgent(params: {
 
       // Execute tool calls
       for (const call of toolCalls) {
+        onToolStart?.(call.function.name, call.function.arguments);
+
         const result = await executeTool(call);
+
+        onToolEnd?.(call.function.name, result);
 
         messages.push({
           role: 'tool',
