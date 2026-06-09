@@ -120,7 +120,8 @@ export default function MakimaPanel({ isOpen, chatId, focusedJobId, onClose }: M
   const [_isCollapsed, setIsCollapsed] = useState(false);
   const [_loadingJobs, setLoadingJobs] = useState(true);
 
-  const { output, status, isStreaming, akiVerification } = useMakimaStream(selectedJobId);
+  const { output, status, isStreaming, akiVerification, toolCalls } =
+    useMakimaStream(selectedJobId);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -245,7 +246,7 @@ export default function MakimaPanel({ isOpen, chatId, focusedJobId, onClose }: M
           </div>
 
           {/* Selected job detail */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Job metadata */}
             <div className="shrink-0 px-4 py-3 border-b border-border/40">
               <p className="text-[11px] text-foreground/70 mb-2 leading-relaxed">
@@ -256,13 +257,51 @@ export default function MakimaPanel({ isOpen, chatId, focusedJobId, onClose }: M
               </div>
             </div>
 
-            {/* Output */}
-            <div className="flex-1 flex flex-col overflow-hidden px-4 py-3">
-              <div className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Terminal className="h-3 w-3" />
-                Output
+            {/* Scrollable content area */}
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+              {/* Tool calls section */}
+              {toolCalls.length > 0 && (
+                <div className="shrink-0 px-4 py-2 border-b border-border/40">
+                  <div className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <span className="text-orange-400/70">Tools</span>
+                    <span className="text-muted-foreground/30">({toolCalls.length})</span>
+                  </div>
+                  <div className="max-h-[220px] overflow-y-auto scrollbar-thin space-y-2">
+                    {toolCalls.map((tool) => (
+                      <div
+                        key={tool.id}
+                        className="text-[11px] font-mono text-muted-foreground/60 bg-[#0a0a0a] rounded px-2 py-1.5 border border-border/30"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-orange-300/70">{tool.toolName}</span>
+                          {tool.result === undefined ? (
+                            <Loader2 className="h-3 w-3 text-orange-400/70 animate-spin" />
+                          ) : (
+                            <span className="text-emerald-400/70 text-[10px]">✓</span>
+                          )}
+                        </div>
+                        <pre className="whitespace-pre-wrap break-all text-[10px]">
+                          {JSON.stringify(tool.args, null, 2)}
+                        </pre>
+                        {tool.result && (
+                          <pre className="whitespace-pre-wrap break-all text-[10px] text-emerald-300/60 mt-1 border-t border-border/20 pt-1">
+                            {tool.result}
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Output */}
+              <div className="flex-1 flex flex-col overflow-hidden px-4 py-3 min-h-0">
+                <div className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Terminal className="h-3 w-3" />
+                  Proceso completo
+                </div>
+                <MakimaOutput output={output} isStreaming={isStreaming} />
               </div>
-              <MakimaOutput output={output} isStreaming={isStreaming} />
             </div>
 
             {/* Aki verification */}
