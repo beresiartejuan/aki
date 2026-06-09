@@ -6,6 +6,8 @@ import {
   onMakimaChunk,
   onMakimaDone,
   onMakimaError,
+  onMakimaToolEnd,
+  onMakimaToolStart,
 } from '@/lib/agent/makima-events';
 
 export const prerender = false;
@@ -119,12 +121,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
         send('aki_verification', JSON.stringify({ content }));
       });
 
+      const offToolStart = onMakimaToolStart(jobId, (data) => {
+        if (closed) return;
+        send('tool_start', JSON.stringify(data));
+      });
+
+      const offToolEnd = onMakimaToolEnd(jobId, (data) => {
+        if (closed) return;
+        send('tool_end', JSON.stringify(data));
+      });
+
       // Store cleanup for cancel()
       streamCleanup = () => {
         offChunk();
         offDone();
         offError();
         offAkiVerification();
+        offToolStart();
+        offToolEnd();
       };
     },
     cancel() {
