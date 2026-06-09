@@ -186,11 +186,13 @@ export default function MakimaPanel({ isOpen, chatId, focusedJobId, onClose }: M
       ) : (
         <>
           {/* Header */}
-          <div className="shrink-0 px-4 py-3 border-b border-border/60 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-orange-500/15 border border-orange-500/20 flex items-center justify-center">
-                <Terminal className="h-4 w-4 text-orange-400" />
-              </div>
+          <div className="shrink-0 px-4 py-3 border-b border-border/60 flex items-center justify-between max-h-16">
+            <div className="flex items-center gap-3">
+              <img
+                src="/makima_profile_picture (1).png"
+                alt="Makima"
+                className="h-9 w-9 rounded-md object-cover border border-border/30"
+              />
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Makima</h3>
                 <p className="text-[10px] text-muted-foreground/60">Agente de ejecución</p>
