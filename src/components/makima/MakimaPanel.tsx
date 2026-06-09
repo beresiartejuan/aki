@@ -157,12 +157,11 @@ export default function MakimaPanel({ isOpen, chatId, focusedJobId, onClose }: M
   return (
     <div
       className={`
-        flex flex-col shrink-0 border-l border-border/60 bg-[#0c0c0c]
-        transition-all duration-300 ease-out
-        fixed right-0 top-0 bottom-0 z-50
-        md:relative md:inset-auto md:z-auto
-        ${isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
-        ${isOpen ? (_isCollapsed ? 'w-full md:w-12' : 'w-full md:w-[380px]') : 'w-0 overflow-hidden'}
+        flex flex-col shrink-0 border-l border-border/60 bg-[#0c0c0c]/95 backdrop-blur-sm
+        transition-transform duration-300 ease-out
+        absolute right-0 top-0 bottom-0 z-40
+        ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+        ${isOpen ? (_isCollapsed ? 'w-12' : 'w-[480px]') : 'w-0 overflow-hidden'}
       `}
     >
       {/* Collapse toggle (desktop only) */}
