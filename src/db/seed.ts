@@ -59,7 +59,8 @@ Cuando necesites delegar, escribí EXACTAMENTE esto al final de tu respuesta (pu
 
   if (!agentResult.ok) {
     console.error('[seed] Failed to upsert agent config:', agentResult.error);
-    throw agentResult.error;
+    // Don't throw — let the app continue. Tables might not exist yet (migrations pending).
+    return;
   }
 
   console.log('[seed] Default agent config ensured:', agentResult.data.id);
