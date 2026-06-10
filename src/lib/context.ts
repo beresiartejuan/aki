@@ -37,7 +37,11 @@ export type BuiltContext = {
  * Builds the full context for an agent turn, including system prompt with
  * conversation summary and user memory injected.
  */
-export async function buildContext(chatId: string, userId: string): Promise<Result<BuiltContext>> {
+export async function buildContext(
+  chatId: string,
+  userId: string,
+  agentId?: string
+): Promise<Result<BuiltContext>> {
   return safeQuery(async () => {
     // 1. LOAD ALL MESSAGES for the chat
     const messagesResult = await getMessagesByChatId(chatId);
@@ -75,14 +79,18 @@ export async function buildContext(chatId: string, userId: string): Promise<Resu
       (!summary || summary.messagesCovered < totalMessages - MAX_SUMMARY_AGE);
 
     // 6. LOAD AGENT CONFIG
-    const agentResult = await getAgentConfig(DEFAULT_AGENT_ID);
+    const effectiveAgentId = agentId ?? DEFAULT_AGENT_ID;
+    const agentResult = await getAgentConfig(effectiveAgentId);
     let agentConfig: AgentConfig;
 
     if (!agentResult.ok || !agentResult.data) {
       // Use fallback values if agent config not found
+      const isReze = effectiveAgentId !== DEFAULT_AGENT_ID;
       agentConfig = {
-        systemPrompt: 'You are Aki, a helpful AI assistant.',
-        model: env.OLLAMA_MODEL,
+        systemPrompt: isReze
+          ? 'You are Reze, a proactive and efficient AI assistant with full filesystem and command access.'
+          : 'You are Aki, a helpful AI assistant.',
+        model: isReze ? env.REZE_MODEL : env.OLLAMA_MODEL,
         temperature: 0.7,
         maxTokens: 2048,
         thinkingEnabled: false,
