@@ -1,6 +1,6 @@
-import { ArrowUp, Brain, Loader2 } from 'lucide-react';
+import { ArrowUp, Loader2, Zap, ZapOff } from 'lucide-react';
 import type * as React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,14 +34,26 @@ export default function ChatInput({
   disabled = false,
   disabledReason = 'Escribe un mensaje...',
 }: ChatInputProps) {
-  const [thinkingActive, setThinkingActive] = useState(false);
+  // Reze mode state persisted in localStorage
+  const [rezeMode, setRezeMode] = useState(() => {
+    try {
+      return localStorage.getItem('reze-mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { textareaRef, resetHeight } = useAutoResizeTextarea(inputValue);
 
-  const toggleThinking = () => setThinkingActive((prev) => !prev);
+  useEffect(() => {
+    localStorage.setItem('reze-mode', String(rezeMode));
+  }, [rezeMode]);
+
+  const toggleReze = () => setRezeMode((prev) => !prev);
 
   const isDisabled = loading || disabled;
 
@@ -60,7 +72,8 @@ export default function ChatInput({
     const params = new URLSearchParams({
       chatId,
       message: messageToSend,
-      thinking: String(thinkingActive),
+      thinking: 'false',
+      agent: rezeMode ? 'reze' : 'aki',
     });
 
     const source = new EventSource(`/api/chat/stream?${params}`);
@@ -130,9 +143,9 @@ export default function ChatInput({
     return 'Escribe un mensaje...';
   };
 
-  const getButtonClasses = (isActive: boolean, isThinking = false) => {
+  const getButtonClasses = (isActive: boolean, isReze = false) => {
     if (isActive) {
-      return `h-8 w-8 rounded-lg bg-primary/20 text-primary border border-primary/40 ${isThinking ? 'ring-1 ring-primary/50 animate-pulse' : ''}`;
+      return `h-8 w-8 rounded-lg bg-primary/20 text-primary border border-primary/40 ${isReze ? 'ring-1 ring-primary/50 animate-pulse' : ''}`;
     }
     return 'h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-150';
   };
@@ -175,15 +188,19 @@ export default function ChatInput({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={getButtonClasses(thinkingActive, true)}
-                      onClick={toggleThinking}
+                      className={getButtonClasses(rezeMode, true)}
+                      onClick={toggleReze}
                       disabled={loading || disabled}
                     >
-                      <Brain className="h-4 w-4" />
+                      {rezeMode ? (
+                        <Zap className="h-4 w-4" />
+                      ) : (
+                        <ZapOff className="h-4 w-4" />
+                      )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p>Thinking</p>
+                    <p>{rezeMode ? 'Reze (activo)' : 'Reze (inactivo)'}</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
