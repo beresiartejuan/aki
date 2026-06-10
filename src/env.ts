@@ -6,6 +6,7 @@ export const env = {
   OLLAMA_API_KEY: import.meta.env?.OLLAMA_API_KEY,
   OLLAMA_MODEL: import.meta.env?.OLLAMA_MODEL || 'qwen3.5',
   MAKIMA_MODEL: import.meta.env?.MAKIMA_MODEL || import.meta.env?.OLLAMA_MODEL || 'qwen3.5',
+  REZE_MODEL: import.meta.env?.REZE_MODEL || import.meta.env?.OLLAMA_MODEL || 'qwen3.5',
   WORKSPACE_ROOT: import.meta.env?.WORKSPACE_ROOT || process.cwd(),
   ENABLE_SANDBOX: import.meta.env?.ENABLE_SANDBOX === 'true',
 };

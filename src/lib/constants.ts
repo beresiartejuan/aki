@@ -9,3 +9,6 @@ export const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 // Default agent ID (fixed for local-first app)
 export const DEFAULT_AGENT_ID = '00000000-0000-0000-0000-000000000002';
+
+// Reze agent ID (fixed for local-first app)
+export const REZE_AGENT_ID = '00000000-0000-0000-0000-000000000003';
