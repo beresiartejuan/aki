@@ -17,6 +17,7 @@ interface Message {
 interface MakimaJobLite {
   id: string;
   status: 'pending' | 'running' | 'done' | 'error';
+  summary: string | null;
 }
 
 interface MessageListProps {
@@ -127,7 +128,11 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
 
         const jobsMap = new Map<string, MakimaJobLite>();
         for (const job of jobsData) {
-          jobsMap.set(job.id, job);
+          jobsMap.set(job.id, {
+            id: job.id,
+            status: job.status,
+            summary: job.summary ?? null,
+          });
         }
         setMakimaJobs(jobsMap);
       } catch (err) {
@@ -209,6 +214,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
                   thinking={msg.thinkingContent}
                   makimaJobId={msg.makimaJobId}
                   makimaJobStatus={job?.status}
+                  makimaJobSummary={job?.summary ?? null}
                   onOpenMakimaPanel={onOpenMakimaPanel}
                 />
               </div>

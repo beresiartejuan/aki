@@ -12,6 +12,7 @@ interface MessageBubbleProps {
   isStreaming?: boolean;
   makimaJobId?: string | null;
   makimaJobStatus?: 'pending' | 'running' | 'done' | 'error';
+  makimaJobSummary?: string | null;
   onOpenMakimaPanel?: (jobId: string) => void;
 }
 
@@ -34,6 +35,7 @@ export default function MessageBubble({
   isStreaming,
   makimaJobId,
   makimaJobStatus,
+  makimaJobSummary,
   onOpenMakimaPanel,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
@@ -148,7 +150,12 @@ export default function MessageBubble({
         </div>
         {/* Makima chip */}
         {makimaJobId && onOpenMakimaPanel && (
-          <MakimaChip jobId={makimaJobId} status={makimaJobStatus} onOpen={onOpenMakimaPanel} />
+          <MakimaChip
+            jobId={makimaJobId}
+            status={makimaJobStatus}
+            summary={makimaJobSummary}
+            onOpen={onOpenMakimaPanel}
+          />
         )}
 
         {/* Timestamp - appears on hover (only when not streaming) */}

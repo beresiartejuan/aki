@@ -243,6 +243,7 @@ export const makimaJobs = sqliteTable(
     fullOutput: text('full_output').default(''),
     lastOutputChunk: text('last_output_chunk').default(''),
     akiVerification: text('aki_verification').default(''),
+    summary: text('summary').default(''),
     createdAt: integer('created_at')
       .notNull()
       .$defaultFn(() => Date.now()),

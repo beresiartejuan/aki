@@ -1,10 +1,11 @@
 import {
-  Activity,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
-  FileText,
   Loader2,
+  Play,
   Terminal,
   X,
   Zap,
@@ -18,9 +19,9 @@ interface MakimaJob {
   id: string;
   status: 'pending' | 'running' | 'done' | 'error';
   prompt: string;
+  summary: string | null;
   createdAt: number;
   finishedAt: number | null;
-  akiVerification: string | null;
 }
 
 interface MakimaPanelProps {
@@ -54,7 +55,7 @@ function StatusBadge({ status }: { status: MakimaJob['status'] }) {
       label: 'Completado',
     },
     error: {
-      icon: Activity,
+      icon: Zap,
       color: 'text-red-400',
       bg: 'bg-red-400/10',
       border: 'border-red-400/20',
@@ -67,7 +68,7 @@ function StatusBadge({ status }: { status: MakimaJob['status'] }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.bg} ${config.color} ${config.border}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${config.bg} ${config.color} ${config.border}`}
     >
       <Icon className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`} />
       {config.label}
@@ -79,12 +80,94 @@ function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return 'ahora';
-  if (minutes < 60) return `hace ${minutes} min`;
+  if (minutes < 60) return `hace ${minutes}min`;
   const hours = Math.floor(minutes / 60);
   return `hace ${hours}h`;
 }
 
-function MakimaOutput({ output, isStreaming }: { output: string; isStreaming: boolean }) {
+interface CompactToolCall {
+  id: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  result?: string;
+  error?: boolean;
+}
+
+function ToolCallRow({ tool }: { tool: CompactToolCall }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Extract primary argument
+  const primaryArg = Object.values(tool.args)[0] as string | undefined;
+  const argDisplay = primaryArg ? String(primaryArg).slice(0, 40) : '';
+  const argTruncated = primaryArg && String(primaryArg).length > 40 ? '...' : '';
+
+  const success = tool.result !== undefined && !tool.error;
+
+  return (
+    <div className="border-b border-border/30 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-surface/30 transition-colors"
+      >
+        {expanded ? (
+          <ChevronUp className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+        ) : (
+          <ChevronDown className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+        )}
+        <Play className="h-3 w-3 text-orange-400/60 shrink-0" />
+        <span className="font-mono text-orange-300/80 shrink-0">{tool.toolName}</span>
+        {argDisplay && (
+          <span className="text-muted-foreground/50 truncate">
+            {argDisplay}
+            {argTruncated}
+          </span>
+        )}
+        <span className="ml-auto shrink-0">
+          {success ? (
+            <span className="text-emerald-400/80">&#10003;</span>
+          ) : tool.error ? (
+            <span className="text-red-400/80">&#10007;</span>
+          ) : (
+            <Loader2 className="h-3 w-3 text-orange-400/60 animate-spin" />
+          )}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-2 pl-8 space-y-1.5">
+          <pre className="text-[11px] font-mono text-muted-foreground/60 bg-[#0a0a0a] rounded px-2 py-1.5 border border-border/30 whitespace-pre-wrap break-all">
+            {JSON.stringify(tool.args, null, 2)}
+          </pre>
+          {tool.result !== undefined && (
+            <pre
+              className={`text-[11px] font-mono rounded px-2 py-1.5 border border-border/30 whitespace-pre-wrap break-all ${
+                tool.error
+                  ? 'text-red-300/60 bg-red-950/20'
+                  : 'text-emerald-300/60 bg-emerald-950/10'
+              }`}
+            >
+              {tool.result}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Reconstruct chronological mixed content: markdown text interleaved with tool calls.
+ */
+function MixedOutput({
+  output,
+  toolCalls,
+  isStreaming,
+}: {
+  output: string;
+  toolCalls: CompactToolCall[];
+  isStreaming: boolean;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: output intentionally triggers scroll update
@@ -97,32 +180,103 @@ function MakimaOutput({ output, isStreaming }: { output: string; isStreaming: bo
         container.scrollTop = container.scrollHeight;
       }
     }
-  }, [isStreaming, output]);
+  }, [isStreaming, output, toolCalls.length]);
+
+  // Parse output into segments: text chunks and tool call markers
+  const segments = parseOutput(output, toolCalls);
+  let segmentCounter = 0;
 
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 text-[13px] leading-6 text-foreground/80 bg-[#0d0d0d] rounded-lg border border-border/60"
+      className="flex-1 overflow-y-auto scrollbar-thin text-[13px] leading-6 text-foreground/80 bg-[#0d0d0d] rounded-lg border border-border/60"
     >
-      {output ? (
-        <MarkdownRenderer content={output} streaming={isStreaming} />
+      {segments.length === 0 && !output && !isStreaming ? (
+        <div className="px-4 py-6 text-center">
+          <span className="text-muted-foreground/40 italic">Esperando output...</span>
+        </div>
       ) : (
-        <span className="text-muted-foreground/40 italic">Esperando output...</span>
+        <div className="p-4">
+          {segments.map((seg) => {
+            const key = `seg-${segmentCounter++}`;
+            return seg.type === 'text' ? (
+              <div key={key} className="mb-3">
+                <MarkdownRenderer
+                  content={seg.content}
+                  streaming={isStreaming && key === `seg-${segments.length - 1}`}
+                />
+              </div>
+            ) : (
+              <div key={key} className="mb-2 -mx-1">
+                <ToolCallRow tool={seg.tool} />
+              </div>
+            );
+          })}
+          {isStreaming && (
+            <span className="inline-block w-2 h-4 bg-orange-400/60 ml-1 animate-pulse" />
+          )}
+        </div>
       )}
-      {isStreaming && <span className="inline-block w-2 h-4 bg-orange-400/60 ml-1 animate-pulse" />}
     </div>
   );
 }
 
+type Segment = { type: 'text'; content: string } | { type: 'tool'; tool: CompactToolCall };
+
+function parseOutput(output: string, toolCalls: CompactToolCall[]): Segment[] {
+  if (!output) return [];
+
+  const segments: Segment[] = [];
+  let remaining = output;
+
+  // Tool call marker patterns in the output
+  for (const tool of toolCalls) {
+    const marker = `ToolCall: ${tool.toolName}`;
+    const idx = remaining.indexOf(marker);
+    if (idx !== -1) {
+      // Text before this tool call
+      const before = remaining.slice(0, idx).trim();
+      if (before) {
+        segments.push({ type: 'text', content: before });
+      }
+      segments.push({ type: 'tool', tool });
+      remaining = remaining.slice(idx + marker.length);
+    }
+  }
+
+  // Any remaining text after the last tool call
+  const final = remaining.trim();
+  if (final) {
+    segments.push({ type: 'text', content: final });
+  }
+
+  // If no tool calls were found, return the whole thing as text
+  if (segments.length === 0) {
+    segments.push({ type: 'text', content: output.trim() });
+  }
+
+  return segments;
+}
+
 export default function MakimaPanel({ isOpen, chatId, focusedJobId, onClose }: MakimaPanelProps) {
-  const [_jobs, setJobs] = useState<MakimaJob[]>([]);
-  const [selectedJobId, _setSelectedJobId] = useState<string | null>(focusedJobId);
-  const [_isCollapsed, setIsCollapsed] = useState(false);
-  const [_loadingJobs, setLoadingJobs] = useState(true);
+  const [jobs, setJobs] = useState<MakimaJob[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(focusedJobId);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
 
-  const { output, status, isStreaming, akiVerification, toolCalls } =
-    useMakimaStream(selectedJobId);
+  // Panel width with resize
+  const [panelWidth, setPanelWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('makimaPanelWidth');
+      return saved ? Number.parseInt(saved, 10) : 520;
+    }
+    return 520;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<HTMLDivElement>(null);
 
+  const { output, status: _status, isStreaming, toolCalls } = useMakimaStream(selectedJobId);
+
+  // Fetch jobs
   const fetchJobs = useCallback(async () => {
     try {
       const response = await fetch(`/api/makima/jobs?chatId=${chatId}`);
@@ -133,25 +287,86 @@ export default function MakimaPanel({ isOpen, chatId, focusedJobId, onClose }: M
     } catch (err) {
       console.error('Error fetching makima jobs:', err);
     } finally {
-      setLoadingJobs(false);
+      setIsLoadingJobs(false);
     }
   }, [chatId]);
 
   useEffect(() => {
     if (!chatId) return;
     fetchJobs();
-    // Refresh jobs list periodically while panel is open
     const interval = setInterval(fetchJobs, 5000);
     return () => clearInterval(interval);
   }, [chatId, fetchJobs]);
 
+  // When focusedJobId changes or jobs load, select the right job
   useEffect(() => {
     if (focusedJobId) {
-      _setSelectedJobId(focusedJobId);
+      setSelectedJobId(focusedJobId);
+    } else if (jobs.length > 0 && !selectedJobId) {
+      // Show most recent job
+      const mostRecent = [...jobs].sort((a, b) => b.createdAt - a.createdAt)[0];
+      setSelectedJobId(mostRecent.id);
     }
-  }, [focusedJobId]);
+  }, [focusedJobId, jobs, selectedJobId]);
 
-  const hasJobs = _jobs.length > 0;
+  // Sort jobs by createdAt for navigation
+  const sortedJobs = [...jobs].sort((a, b) => a.createdAt - b.createdAt);
+  const currentIndex = selectedJobId ? sortedJobs.findIndex((j) => j.id === selectedJobId) : -1;
+
+  const canGoPrev = currentIndex > 0;
+  const canGoNext = currentIndex >= 0 && currentIndex < sortedJobs.length - 1;
+
+  const goPrev = useCallback(() => {
+    if (canGoPrev) setSelectedJobId(sortedJobs[currentIndex - 1].id);
+  }, [canGoPrev, sortedJobs, currentIndex]);
+
+  const goNext = useCallback(() => {
+    if (canGoNext) setSelectedJobId(sortedJobs[currentIndex + 1].id);
+  }, [canGoNext, sortedJobs, currentIndex]);
+
+  const currentJob = sortedJobs[currentIndex];
+
+  // Resize handlers
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = window.innerWidth - e.clientX;
+      const clamped = Math.max(360, Math.min(newWidth, window.innerWidth * 0.7));
+      setPanelWidth(clamped);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('makimaPanelWidth', String(panelWidth));
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, panelWidth]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      if (e.key === 'ArrowLeft' && canGoPrev) {
+        goPrev();
+      } else if (e.key === 'ArrowRight' && canGoNext) {
+        goNext();
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, canGoPrev, canGoNext, goPrev, goNext, onClose]);
 
   if (!chatId) return null;
 
@@ -162,162 +377,123 @@ export default function MakimaPanel({ isOpen, chatId, focusedJobId, onClose }: M
         transition-transform duration-300 ease-out
         absolute right-0 top-0 bottom-0 z-40
         ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-        ${isOpen ? (_isCollapsed ? 'w-12' : 'w-[480px]') : 'w-0 overflow-hidden'}
       `}
+      style={{ width: isOpen ? panelWidth : 0, overflow: isOpen ? 'visible' : 'hidden' }}
     >
-      {/* Collapse toggle (desktop only) */}
-      <button
-        type="button"
-        onClick={() => setIsCollapsed(!_isCollapsed)}
-        className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-6 h-12 rounded-l-lg bg-[#111] border border-r-0 border-border/60 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {_isCollapsed ? (
-          <ChevronLeft className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronRight className="h-3.5 w-3.5" />
-        )}
-      </button>
+      {/* Resize handle */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: div is a draggable resize handle */}
+      <div
+        ref={resizeRef}
+        onMouseDown={() => setIsResizing(true)}
+        className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-orange-500/30 transition-colors z-50 ${
+          isResizing ? 'bg-orange-500/40' : 'bg-transparent'
+        }`}
+        title="Arrastra para redimensionar"
+      />
 
-      {_isCollapsed ? (
-        <div className="flex-1 flex flex-col items-center py-4 gap-3">
-          <Terminal className="h-5 w-5 text-orange-500/60" />
-          {hasJobs && <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
+      {/* Header */}
+      <div className="shrink-0 px-4 py-3 border-b border-border/60 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/makima_profile_picture (1).png"
+            alt="Makima"
+            className="h-8 w-8 rounded-md object-cover border border-border/30"
+          />
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Makima</h3>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Header */}
-          <div className="shrink-0 px-4 py-3 border-b border-border/60 flex items-center justify-between max-h-16">
-            <div className="flex items-center gap-3">
-              <img
-                src="/makima_profile_picture (1).png"
-                alt="Makima"
-                className="h-9 w-9 rounded-md object-cover border border-border/30"
-              />
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Makima</h3>
-                <p className="text-[10px] text-muted-foreground/60">Agente de ejecución</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-                <X className="h-4 w-4 text-muted-foreground" />
+
+        <div className="flex items-center gap-1">
+          {/* Navigation */}
+          {sortedJobs.length > 1 && (
+            <div className="flex items-center gap-1 mr-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={goPrev}
+                disabled={!canGoPrev}
+              >
+                <ChevronLeft
+                  className={`h-4 w-4 ${canGoPrev ? 'text-foreground/70' : 'text-muted-foreground/30'}`}
+                />
+              </Button>
+              <span className="text-xs text-muted-foreground/70 tabular-nums min-w-[40px] text-center">
+                {sortedJobs.length > 0 ? `${currentIndex + 1} / ${sortedJobs.length}` : ''}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={goNext}
+                disabled={!canGoNext}
+              >
+                <ChevronRight
+                  className={`h-4 w-4 ${canGoNext ? 'text-foreground/70' : 'text-muted-foreground/30'}`}
+                />
               </Button>
             </div>
+          )}
+
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+            <X className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Job subtitle */}
+      {currentJob && (
+        <div className="shrink-0 px-4 py-2.5 border-b border-border/40 bg-[#0a0a0a]/50">
+          <p className="text-[13px] text-foreground/80 leading-snug line-clamp-1">
+            {currentJob.prompt.length > 60
+              ? `${currentJob.prompt.slice(0, 60)}...`
+              : currentJob.prompt}
+          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span
+              className={`inline-block w-1.5 h-1.5 rounded-full ${
+                currentJob.status === 'done'
+                  ? 'bg-emerald-400'
+                  : currentJob.status === 'error'
+                    ? 'bg-red-400'
+                    : currentJob.status === 'running'
+                      ? 'bg-orange-400 animate-pulse'
+                      : 'bg-yellow-400'
+              }`}
+            />
+            <StatusBadge status={currentJob.status} />
+            <span className="text-[11px] text-muted-foreground/50">
+              {formatRelativeTime(currentJob.createdAt)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {isLoadingJobs && jobs.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-2 text-muted-foreground/40 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Cargando jobs...
+          </div>
+        </div>
+      ) : jobs.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground/40">
+          <Terminal className="h-6 w-6" />
+          <p className="text-sm">No hay jobs todavía</p>
+        </div>
+      ) : (
+        /* Output area */
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0 px-3 py-3">
+          {/* Label */}
+          <div className="shrink-0 text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Terminal className="h-3 w-3" />
+            Output
           </div>
 
-          {/* Job list */}
-          <div className="shrink-0 border-b border-border/40">
-            <div className="px-4 py-2 text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider">
-              Jobs ({_jobs.length})
-            </div>
-            <div className="max-h-[160px] overflow-y-auto scrollbar-thin">
-              {_loadingJobs && _jobs.length === 0 ? (
-                <div className="px-4 py-3 text-xs text-muted-foreground/40">Cargando...</div>
-              ) : !hasJobs ? (
-                <div className="px-4 py-3 text-xs text-muted-foreground/40">
-                  No hay jobs todavía
-                </div>
-              ) : (
-                _jobs.map((job) => (
-                  <button
-                    key={job.id}
-                    type="button"
-                    onClick={() => _setSelectedJobId(job.id)}
-                    className={`w-full text-left px-4 py-2.5 flex items-start gap-3 hover:bg-surface/40 transition-colors border-l-2 ${
-                      selectedJobId === job.id
-                        ? 'border-orange-500 bg-surface/30'
-                        : 'border-transparent'
-                    }`}
-                  >
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground/50 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-foreground/80 truncate leading-tight">
-                        {job.prompt.length > 60 ? `${job.prompt.slice(0, 60)}...` : job.prompt}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <StatusBadge status={job.status} />
-                        <span className="text-[10px] text-muted-foreground/40">
-                          {formatRelativeTime(job.createdAt)}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Selected job detail */}
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-            {/* Job metadata */}
-            <div className="shrink-0 px-4 py-3 border-b border-border/40">
-              <p className="text-[11px] text-foreground/70 mb-2 leading-relaxed">
-                Output de Makima
-              </p>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={status} />
-              </div>
-            </div>
-
-            {/* Scrollable content area */}
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-              {/* Tool calls section */}
-              {toolCalls.length > 0 && (
-                <div className="shrink-0 px-4 py-2 border-b border-border/40">
-                  <div className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <span className="text-orange-400/70">Tools</span>
-                    <span className="text-muted-foreground/30">({toolCalls.length})</span>
-                  </div>
-                  <div className="max-h-[220px] overflow-y-auto scrollbar-thin space-y-2">
-                    {toolCalls.map((tool) => (
-                      <div
-                        key={tool.id}
-                        className="text-[11px] font-mono text-muted-foreground/60 bg-[#0a0a0a] rounded px-2 py-1.5 border border-border/30"
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-orange-300/70">{tool.toolName}</span>
-                          {tool.result === undefined ? (
-                            <Loader2 className="h-3 w-3 text-orange-400/70 animate-spin" />
-                          ) : (
-                            <span className="text-emerald-400/70 text-[10px]">✓</span>
-                          )}
-                        </div>
-                        <pre className="whitespace-pre-wrap break-all text-[10px]">
-                          {JSON.stringify(tool.args, null, 2)}
-                        </pre>
-                        {tool.result && (
-                          <pre className="whitespace-pre-wrap break-all text-[10px] text-emerald-300/60 mt-1 border-t border-border/20 pt-1">
-                            {tool.result}
-                          </pre>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Output */}
-              <div className="flex-1 flex flex-col overflow-hidden px-4 py-3 min-h-0">
-                <div className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Terminal className="h-3 w-3" />
-                  Proceso completo
-                </div>
-                <MakimaOutput output={output} isStreaming={isStreaming} />
-              </div>
-            </div>
-
-            {/* Aki verification */}
-            {akiVerification && (
-              <div className="shrink-0 px-4 py-3 border-t border-border/40 bg-surface/20">
-                <div className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Zap className="h-3 w-3" />
-                  Verificación de Aki
-                </div>
-                <p className="text-xs text-foreground/70 leading-relaxed">{akiVerification}</p>
-              </div>
-            )}
-          </div>
-        </>
+          <MixedOutput output={output} toolCalls={toolCalls} isStreaming={isStreaming} />
+        </div>
       )}
     </div>
   );

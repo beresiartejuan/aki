@@ -3,33 +3,39 @@ import { CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
 interface MakimaChipProps {
   jobId: string;
   status?: 'pending' | 'running' | 'done' | 'error';
+  summary?: string | null;
   onOpen: (id: string) => void;
 }
 
-export default function MakimaChip({ jobId, status = 'pending', onOpen }: MakimaChipProps) {
+export default function MakimaChip({
+  jobId,
+  status = 'pending',
+  summary = null,
+  onOpen,
+}: MakimaChipProps) {
   const configs = {
     pending: {
       icon: Clock,
       label: 'Makima está por empezar...',
-      dot: 'bg-yellow-400/60',
+      dot: 'bg-yellow-400',
       animate: 'animate-pulse',
     },
     running: {
       icon: Loader2,
       label: 'Makima está trabajando...',
-      dot: 'bg-orange-400/60',
-      animate: 'animate-spin',
+      dot: 'bg-orange-400',
+      animate: 'animate-pulse',
     },
     done: {
       icon: CheckCircle2,
-      label: 'Makima completó la tarea. Ver detalles',
-      dot: 'bg-emerald-400/60',
+      label: summary ?? 'Makima completó la tarea. Ver detalles',
+      dot: 'bg-emerald-400',
       animate: '',
     },
     error: {
       icon: XCircle,
-      label: 'Makima falló. Ver detalles',
-      dot: 'bg-red-400/60',
+      label: summary ?? 'Makima falló. Ver detalles',
+      dot: 'bg-red-400',
       animate: '',
     },
   };
@@ -48,9 +54,13 @@ export default function MakimaChip({ jobId, status = 'pending', onOpen }: Makima
         alt="Makima"
         className="h-[18px] w-[18px] rounded-full object-cover border border-border/30"
       />
-      <Icon className={`h-3 w-3 ${config.animate}`} />
-      <span className="text-xs font-medium">{config.label}</span>
-      <span className={`ml-auto h-1.5 w-1.5 rounded-full ${config.dot}`} />
+      <Icon className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`} />
+      <span className="text-xs font-medium max-w-[280px] truncate">{config.label}</span>
+      <span
+        className={`ml-auto h-1.5 w-1.5 rounded-full shrink-0 ${config.dot} ${
+          config.animate ? config.animate : ''
+        }`}
+      />
     </button>
   );
 }

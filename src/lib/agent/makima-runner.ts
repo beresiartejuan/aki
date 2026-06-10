@@ -121,12 +121,13 @@ async function runMakimaInBackground(job: MakimaJob, chatId: string): Promise<vo
       onDone: async (fullOutput) => {
         await flushBuffer();
         try {
+          const summary = extractJobSummary(fullOutput, job.prompt);
           const verification = await requestAkiVerification(
             fullOutput,
             job.prompt,
             job.userMessage
           );
-          await finishMakimaJob(job.id, verification);
+          await finishMakimaJob(job.id, verification, summary);
           await saveVerificationMessage(chatId, verification);
           emitMakimaAkiVerification(job.id, verification);
         } catch (_err) {
@@ -205,6 +206,51 @@ async function requestAkiVerification(
   } catch {
     return 'Listo, Makima completó la tarea que pediste.';
   }
+}
+
+/**
+ * Extrae un resumen de la acción principal del output de Makima.
+ * Busca: archivos creados/modificados, comandos ejecutados, directorios listados.
+ * Fallback: prompt truncado.
+ */
+function extractJobSummary(fullOutput: string, prompt: string): string {
+  // Buscar archivo creado/modificado por write_file
+  const writeMatch = fullOutput.match(/write_file\s*\([^)]*['"]([^'"]+)['"]/);
+  if (writeMatch) {
+    return `Makima creó \`${writeMatch[1]}\``;
+  }
+
+  // Buscar archivo creado por create_file
+  const createMatch = fullOutput.match(/create_file\s*\([^)]*['"]([^'"]+)['"]/);
+  if (createMatch) {
+    return `Makima creó \`${createMatch[1]}\``;
+  }
+
+  // Buscar archivo modificado por edit_file
+  const editMatch = fullOutput.match(/edit_file\s*\([^)]*['"]([^'"]+)['"]/);
+  if (editMatch) {
+    return `Makima modificó \`${editMatch[1]}\``;
+  }
+
+  // Buscar comando ejecutado (primer run_command o shell)
+  const runMatch = fullOutput.match(
+    /(?:run_command|shell_exec|shell)\s*\([^)]*['"]([^'"]{3,})['"]/
+  );
+  if (runMatch) {
+    const cmd = runMatch[1].slice(0, 30);
+    const ellipsis = runMatch[1].length > 30 ? '...' : '';
+    return `Makima ejecutó \`${cmd}${ellipsis}\``;
+  }
+
+  // Buscar directorio listado
+  const lsMatch = fullOutput.match(/list_directory\s*\([^)]*['"]([^'"]+)['"]/);
+  if (lsMatch) {
+    return `Makima listó \`${lsMatch[1]}\``;
+  }
+
+  // Fallback: prompt truncado
+  const truncated = prompt.length > 50 ? `${prompt.slice(0, 50)}...` : prompt;
+  return `Makima: ${truncated}`;
 }
 
 async function saveVerificationMessage(chatId: string, content: string): Promise<void> {

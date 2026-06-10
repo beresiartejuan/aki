@@ -116,7 +116,11 @@ export function appendMakimaJobOutput(id: string, chunk: string): Promise<Result
 /**
  * Mark job as done with Aki verification
  */
-export function finishMakimaJob(id: string, akiVerification: string): Promise<Result<MakimaJob>> {
+export function finishMakimaJob(
+  id: string,
+  akiVerification: string,
+  summary?: string
+): Promise<Result<MakimaJob>> {
   return safeQuery(async () => {
     const result = await db
       .update(makimaJobs)
@@ -124,6 +128,7 @@ export function finishMakimaJob(id: string, akiVerification: string): Promise<Re
         status: 'done',
         finishedAt: Date.now(),
         akiVerification,
+        ...(summary ? { summary } : {}),
       })
       .where(eq(makimaJobs.id, id))
       .returning();

@@ -43,9 +43,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     id: job.id,
     status: job.status,
     prompt: job.prompt,
+    summary: job.summary,
     createdAt: job.createdAt,
     finishedAt: job.finishedAt,
-    akiVerification: job.akiVerification,
   }));
 
   return new Response(JSON.stringify(jobs), {
