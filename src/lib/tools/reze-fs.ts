@@ -1,6 +1,6 @@
+import { exec } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
@@ -53,7 +53,11 @@ export async function writeFile(filePath: string, content: string): Promise<stri
 /**
  * Replace a specific string in an existing file.
  */
-export async function editFile(filePath: string, oldString: string, newString: string): Promise<string> {
+export async function editFile(
+  filePath: string,
+  oldString: string,
+  newString: string
+): Promise<string> {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
     if (!content.includes(oldString)) {

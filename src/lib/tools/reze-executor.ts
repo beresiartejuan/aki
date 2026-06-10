@@ -1,5 +1,5 @@
 import type { ToolCall } from 'ollama';
-import { readFile, writeFile, editFile, listDirectory, runCommand } from './reze-fs';
+import { editFile, listDirectory, readFile, runCommand, writeFile } from './reze-fs';
 
 /**
  * Execute a tool call for Reze and return the result as a string.

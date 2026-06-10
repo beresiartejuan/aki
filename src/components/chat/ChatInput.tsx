@@ -192,11 +192,7 @@ export default function ChatInput({
                       onClick={toggleReze}
                       disabled={loading || disabled}
                     >
-                      {rezeMode ? (
-                        <Zap className="h-4 w-4" />
-                      ) : (
-                        <ZapOff className="h-4 w-4" />
-                      )}
+                      {rezeMode ? <Zap className="h-4 w-4" /> : <ZapOff className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">

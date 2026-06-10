@@ -81,7 +81,8 @@ export const REZE_TOOL_DEFINITIONS: Tool[] = [
         properties: {
           dirPath: {
             type: 'string',
-            description: 'Absolute or relative path to the directory. Use "." for the current directory',
+            description:
+              'Absolute or relative path to the directory. Use "." for the current directory',
           },
         },
       },
@@ -114,4 +115,9 @@ export const REZE_TOOL_DEFINITIONS: Tool[] = [
 /**
  * Union type of Reze tool names.
  */
-export type RezeToolName = 'read_file' | 'write_file' | 'edit_file' | 'list_directory' | 'run_command';
+export type RezeToolName =
+  | 'read_file'
+  | 'write_file'
+  | 'edit_file'
+  | 'list_directory'
+  | 'run_command';

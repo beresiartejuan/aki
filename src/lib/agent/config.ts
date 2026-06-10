@@ -10,7 +10,12 @@ export async function loadAgentConfig(agentId?: string): Promise<AgentConfig> {
   const isReze = effectiveId !== DEFAULT_AGENT_ID;
 
   return {
-    model: agentResult.ok && agentResult.data ? agentResult.data.model : (isReze ? env.REZE_MODEL : env.OLLAMA_MODEL),
+    model:
+      agentResult.ok && agentResult.data
+        ? agentResult.data.model
+        : isReze
+          ? env.REZE_MODEL
+          : env.OLLAMA_MODEL,
     temperature: agentResult.ok && agentResult.data ? agentResult.data.temperature : 0.7,
     maxTokens: agentResult.ok && agentResult.data ? agentResult.data.maxTokens : 2048,
     thinkingConfig:
