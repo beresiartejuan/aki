@@ -97,6 +97,7 @@ export async function runRezeTurn(chatId: string, userId: string, userContent: s
       role: 'assistant',
       content: fullContent,
       thinkingContent: fullThinking,
+      agentId: REZE_AGENT_ID,
       inputTokens: null,
       outputTokens: null,
       createdAt: Date.now(),

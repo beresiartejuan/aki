@@ -1,6 +1,7 @@
 import { Brain, Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { REZE_AGENT_ID } from '@/lib/constants';
 import MakimaChip from './MakimaChip';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
@@ -14,12 +15,20 @@ interface MessageBubbleProps {
   makimaJobStatus?: 'pending' | 'running' | 'done' | 'error';
   makimaJobSummary?: string | null;
   onOpenMakimaPanel?: (jobId: string) => void;
+  agentId?: string | null;
 }
 
 const MAKIMA_PATTERN = /@makima\s+(.+)/s;
 
 function stripMakimaTag(content: string): string {
   return content.replace(MAKIMA_PATTERN, '').trim();
+}
+
+function getAgentAvatar(agentId?: string | null): { src: string; alt: string } {
+  if (agentId === REZE_AGENT_ID) {
+    return { src: '/reze_profile_picture.png', alt: 'Reze' };
+  }
+  return { src: '/aki_profile_picture (1).png', alt: 'Aki' };
 }
 
 // User messages stay as plain text - no markdown rendering
@@ -37,6 +46,7 @@ export default function MessageBubble({
   makimaJobStatus,
   makimaJobSummary,
   onOpenMakimaPanel,
+  agentId,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
@@ -87,13 +97,15 @@ export default function MessageBubble({
   }
 
   // Assistant message
+  const avatar = getAgentAvatar(agentId);
+
   return (
     <div className="group relative flex gap-3">
-      {/* Assistant avatar - Aki profile picture */}
+      {/* Assistant avatar */}
       <div className="opacity-90 shrink-0 self-start mt-0.5">
         <img
-          src="/aki_profile_picture (1).png"
-          alt="Aki"
+          src={avatar.src}
+          alt={avatar.alt}
           className="w-7 h-7 rounded-md object-cover border border-border/30"
         />
       </div>

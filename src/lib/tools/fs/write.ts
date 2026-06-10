@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { assertInsideSandbox } from '@/lib/tools/sandbox';
+import { assertNotSensitiveFile } from '@/lib/tools/security-check';
 
 /**
  * Write content to a file, creating parent directories if needed.
@@ -8,6 +9,7 @@ import { assertInsideSandbox } from '@/lib/tools/sandbox';
 export async function writeFile(filePath: string, content: string): Promise<string> {
   try {
     assertInsideSandbox(filePath);
+    assertNotSensitiveFile(filePath);
 
     // Create parent directories recursively
     const dir = path.dirname(filePath);

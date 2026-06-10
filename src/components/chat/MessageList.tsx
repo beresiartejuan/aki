@@ -11,6 +11,7 @@ interface Message {
   inputTokens: number | null;
   outputTokens: number | null;
   makimaJobId: string | null;
+  agentId: string | null;
   createdAt: number;
 }
 
@@ -216,6 +217,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(function Mes
                   makimaJobStatus={job?.status}
                   makimaJobSummary={job?.summary ?? null}
                   onOpenMakimaPanel={onOpenMakimaPanel}
+                  agentId={msg.agentId}
                 />
               </div>
             );

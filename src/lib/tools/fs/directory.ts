@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { assertInsideSandbox, WORKSPACE_ROOT } from '@/lib/tools/sandbox';
+import { assertNotSensitiveFile } from '@/lib/tools/security-check';
 
 /**
  * Create a directory and any missing parent directories.
@@ -22,6 +23,7 @@ export async function createDirectory(dirPath: string): Promise<string> {
 export async function deleteFile(filePath: string): Promise<string> {
   try {
     assertInsideSandbox(filePath);
+    assertNotSensitiveFile(filePath);
 
     const stats = await fs.stat(filePath);
     if (stats.isDirectory()) {
@@ -70,6 +72,8 @@ export async function moveFile(sourcePath: string, destPath: string): Promise<st
   try {
     assertInsideSandbox(sourcePath);
     assertInsideSandbox(destPath);
+    assertNotSensitiveFile(sourcePath);
+    assertNotSensitiveFile(destPath);
 
     await fs.rename(sourcePath, destPath);
     return `OK: moved ${sourcePath} → ${destPath}`;

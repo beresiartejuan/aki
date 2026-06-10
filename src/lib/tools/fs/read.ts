@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import { assertInsideSandbox } from '@/lib/tools/sandbox';
+import { assertNotSensitiveFile } from '@/lib/tools/security-check';
 
 /**
  * Read the contents of a file.
@@ -8,6 +9,7 @@ import { assertInsideSandbox } from '@/lib/tools/sandbox';
 export async function readFile(filePath: string): Promise<string> {
   try {
     assertInsideSandbox(filePath);
+    assertNotSensitiveFile(filePath);
 
     const stats = await fs.stat(filePath);
     if (!stats.isFile()) {

@@ -5,6 +5,7 @@ import { buildContext } from '@/lib/context';
 import { extractMemory } from '@/lib/memory-extractor';
 import { ollama } from '@/lib/ollama';
 import { summarizeChat } from '@/lib/summarizer';
+import { DEFAULT_AGENT_ID } from '../constants';
 import { loadAgentConfig } from './config';
 import type { OllamaMessage } from './types';
 
@@ -79,6 +80,7 @@ export async function streamAgentTurn(
       role: 'assistant',
       content: fullContent,
       thinkingContent: fullThinking,
+      agentId: DEFAULT_AGENT_ID,
       createdAt: Date.now(),
     });
 

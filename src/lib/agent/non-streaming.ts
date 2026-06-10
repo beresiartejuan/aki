@@ -5,6 +5,7 @@ import { buildContext } from '@/lib/context';
 import { extractMemory } from '@/lib/memory-extractor';
 import { ollama } from '@/lib/ollama';
 import { summarizeChat } from '@/lib/summarizer';
+import { DEFAULT_AGENT_ID } from '../constants';
 import { loadAgentConfig } from './config';
 import type { OllamaMessage } from './types';
 
@@ -61,6 +62,7 @@ export async function runAgentTurnWithUser(
       role: 'assistant',
       content,
       thinkingContent: thinking,
+      agentId: DEFAULT_AGENT_ID,
       inputTokens: response.prompt_eval_count ?? null,
       outputTokens: response.eval_count ?? null,
       createdAt: Date.now(),

@@ -123,6 +123,7 @@ export async function streamRezeTurn(
       role: 'assistant',
       content: fullContent,
       thinkingContent: fullThinking,
+      agentId: REZE_AGENT_ID,
       createdAt: Date.now(),
     });
 

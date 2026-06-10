@@ -17,6 +17,7 @@ interface ChatInputProps {
   onStreamToolCall?: (toolCall: string) => void;
   onStreamEnd?: () => void;
   onMakimaJobCreated?: (jobId: string) => void;
+  onAgentSelected?: (agentId: string) => void;
   disabled?: boolean;
   disabledReason?: string;
 }

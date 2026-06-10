@@ -2,6 +2,7 @@ import { exec } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import { assertNotSensitiveFile } from './security-check';
 
 const execAsync = promisify(exec);
 
@@ -10,6 +11,8 @@ const execAsync = promisify(exec);
  */
 export async function readFile(filePath: string): Promise<string> {
   try {
+    assertNotSensitiveFile(filePath);
+
     const stats = await fs.stat(filePath);
     if (!stats.isFile()) {
       return `Error: not a file: ${filePath}`;
@@ -41,6 +44,8 @@ export async function readFile(filePath: string): Promise<string> {
  */
 export async function writeFile(filePath: string, content: string): Promise<string> {
   try {
+    assertNotSensitiveFile(filePath);
+
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(filePath, content, 'utf-8');
@@ -59,6 +64,8 @@ export async function editFile(
   newString: string
 ): Promise<string> {
   try {
+    assertNotSensitiveFile(filePath);
+
     const content = await fs.readFile(filePath, 'utf-8');
     if (!content.includes(oldString)) {
       return `Error: the specified oldString was not found in ${filePath}`;
