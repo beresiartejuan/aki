@@ -1,21 +1,22 @@
-// In Astro, environment variables are loaded automatically
-// We'll access them directly with basic validation
+// Environment variables with fallback to process.env for standalone scripts
+const getEnv = (key: string, fallback?: string): string | undefined => {
+  const val = import.meta.env?.[key] ?? process.env?.[key];
+  return val !== undefined ? val : fallback;
+};
 
 export const env = {
-  DB_PATH: import.meta.env?.DB_PATH || './data/aki.db',
-  OLLAMA_API_KEY: import.meta.env?.OLLAMA_API_KEY,
-  OLLAMA_MODEL: import.meta.env?.OLLAMA_MODEL || 'qwen3.5',
-  MAKIMA_MODEL: import.meta.env?.MAKIMA_MODEL || import.meta.env?.OLLAMA_MODEL || 'qwen3.5',
-  REZE_MODEL: import.meta.env?.REZE_MODEL || import.meta.env?.OLLAMA_MODEL || 'qwen3.5',
-  WORKSPACE_ROOT: import.meta.env?.WORKSPACE_ROOT || process.cwd(),
-  ENABLE_SANDBOX: import.meta.env?.ENABLE_SANDBOX === 'true',
+  DB_PATH: getEnv('DB_PATH', './data/aki.db')!,
+  OLLAMA_API_KEY: getEnv('OLLAMA_API_KEY'),
+  OLLAMA_MODEL: getEnv('OLLAMA_MODEL', 'qwen3.5')!,
+  MAKIMA_MODEL: getEnv('MAKIMA_MODEL') || getEnv('OLLAMA_MODEL', 'qwen3.5')!,
+  REZE_MODEL: getEnv('REZE_MODEL') || getEnv('OLLAMA_MODEL', 'qwen3.5')!,
+  WORKSPACE_ROOT: getEnv('WORKSPACE_ROOT') || process.cwd(),
+  ENABLE_SANDBOX: getEnv('ENABLE_SANDBOX') === 'true',
+  OLLAMA_LOCAL_URL: getEnv('OLLAMA_LOCAL_URL', 'http://localhost:11434')!,
+  OLLAMA_REMOTE_URL: getEnv('OLLAMA_REMOTE_URL', 'https://ollama.com')!,
 };
 
 // Basic validation
 if (!env.DB_PATH) {
   throw new Error('DB_PATH environment variable is required');
-}
-
-if (!env.OLLAMA_API_KEY) {
-  throw new Error('OLLAMA_API_KEY environment variable is required');
 }
