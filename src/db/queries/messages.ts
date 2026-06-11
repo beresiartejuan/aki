@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { type Result, safeQuery } from '@/db/result';
 import type { InsertMessage, Message } from '@/db/schema';
 import { insertMessageSchema, messages, selectMessageSchema } from '@/db/schema';
+import { storeMessageEmbedding } from '@/lib/embeddings';
 
 /**
  * Selects all messages for a chat ordered by createdAt ASC
@@ -36,7 +37,8 @@ export function getMessageById(messageId: string): Promise<Result<Message | unde
 }
 
 /**
- * Validates with insertMessageSchema, inserts, returns created row
+ * Validates with insertMessageSchema, inserts, returns created row.
+ * Also generates an embedding for the message content in the background.
  */
 export function createMessage(data: InsertMessage): Promise<Result<Message>> {
   return safeQuery(async () => {
@@ -45,8 +47,16 @@ export function createMessage(data: InsertMessage): Promise<Result<Message>> {
 
     const result = await db.insert(messages).values(validatedData).returning();
 
-    // Validate result with Zod schema
-    return selectMessageSchema.parse(result[0]);
+    const message = selectMessageSchema.parse(result[0]);
+
+    // Generate embedding fire-and-forget (does not block)
+    if (message.content) {
+      storeMessageEmbedding(message.id, message.content).catch((err) =>
+        console.error('[createMessage] Embedding generation failed:', err)
+      );
+    }
+
+    return message;
   });
 }
 

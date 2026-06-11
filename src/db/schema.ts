@@ -72,6 +72,7 @@ export const messages = sqliteTable('messages', {
   outputTokens: integer('output_tokens'), // nullable
   makimaJobId: text('makima_job_id'), // FK to makima_jobs.id when Aki delegated
   agentId: text('agent_id'), // FK to agent_config.id — which agent sent this message
+  embedding: text('embedding'), // JSON string of embedding vector for semantic search
   createdAt: integer('created_at')
     .notNull()
     .$defaultFn(() => Date.now()),
