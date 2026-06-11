@@ -110,6 +110,29 @@ export const REZE_TOOL_DEFINITIONS: Tool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'search_messages',
+      description:
+        'Search the current chat history by semantic similarity. Use this when you need to recall something the user said earlier, find a previous decision, or look up context that is outside your current context window.',
+      parameters: {
+        type: 'object',
+        required: ['query'],
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query describing what you are looking for. Be specific.',
+          },
+          limit: {
+            type: 'number',
+            description:
+              'Maximum number of results to return (1-11, default 5). Use fewer for precise lookups, more for broad searches.',
+          },
+        },
+      },
+    },
+  },
 ];
 
 /**
@@ -120,4 +143,5 @@ export type RezeToolName =
   | 'write_file'
   | 'edit_file'
   | 'list_directory'
-  | 'run_command';
+  | 'run_command'
+  | 'search_messages';

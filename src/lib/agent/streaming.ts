@@ -5,6 +5,8 @@ import { buildContext } from '@/lib/context';
 import { extractMemory } from '@/lib/memory-extractor';
 import { ollama } from '@/lib/ollama';
 import { summarizeChat } from '@/lib/summarizer';
+import { AKI_TOOL_DEFINITIONS } from '@/lib/tools/aki-definitions';
+import { executeAkiTool } from '@/lib/tools/aki-executor';
 import { DEFAULT_AGENT_ID } from '../constants';
 import { loadAgentConfig } from './config';
 import type { OllamaMessage } from './types';
@@ -47,32 +49,81 @@ export async function streamAgentTurn(
     let fullContent = '';
     let fullThinking: string | null = null;
 
-    const stream = await ollama.chat({
-      model: config.model,
-      messages,
-      think: thinkingEnabled || config.thinkingConfig,
-      stream: true,
-      options: {
-        temperature: config.temperature,
-        num_predict: config.maxTokens,
-      },
-    });
+    // --- Tool loop (non-streaming internally, stream final response) ---
+    let maxIterations = 3;
+    while (maxIterations > 0) {
+      maxIterations--;
 
-    for await (const chunk of stream) {
-      if (chunk.message.content) {
-        fullContent += chunk.message.content;
-        onChunk({ content: chunk.message.content });
+      const response = await ollama.chat({
+        model: config.model,
+        messages,
+        tools: AKI_TOOL_DEFINITIONS,
+        think: thinkingEnabled || config.thinkingConfig,
+        stream: false,
+        options: {
+          temperature: config.temperature,
+          num_predict: config.maxTokens,
+        },
+      });
+
+      if (response.message.thinking) {
+        fullThinking = (fullThinking ?? '') + response.message.thinking;
       }
-      if (chunk.message.thinking) {
-        fullThinking = (fullThinking ?? '') + chunk.message.thinking;
-        onChunk({ thinking: chunk.message.thinking });
+
+      // Check if Ollama wants to call a tool
+      if (response.message.tool_calls && response.message.tool_calls.length > 0) {
+        messages.push(response.message as OllamaMessage);
+
+        for (const toolCall of response.message.tool_calls) {
+          onChunk({
+            toolCall: `[tool] ${toolCall.function.name}(${JSON.stringify(toolCall.function.arguments)})`,
+          });
+          const toolResult = await executeAkiTool(toolCall, chatId);
+          messages.push({
+            role: 'tool',
+            content: toolResult,
+          });
+        }
+
+        continue;
       }
+
+      // No tool calls — stream the final response to the client
+      const stream = await ollama.chat({
+        model: config.model,
+        messages,
+        think: thinkingEnabled || config.thinkingConfig,
+        stream: true,
+        options: {
+          temperature: config.temperature,
+          num_predict: config.maxTokens,
+        },
+      });
+
+      for await (const chunk of stream) {
+        if (chunk.message.content) {
+          fullContent += chunk.message.content;
+          onChunk({ content: chunk.message.content });
+        }
+        if (chunk.message.thinking) {
+          fullThinking = (fullThinking ?? '') + chunk.message.thinking;
+          onChunk({ thinking: chunk.message.thinking });
+        }
+      }
+
+      messages.push({
+        role: 'assistant',
+        content: fullContent,
+      });
+
+      break;
     }
 
-    messages.push({
-      role: 'assistant',
-      content: fullContent,
-    });
+    if (maxIterations === 0 && fullContent === '') {
+      fullContent =
+        'Llegué al límite de iteraciones de herramientas. Avísame si querés que continúe.';
+      onChunk({ content: fullContent });
+    }
 
     // Persist final message
     const assistantMessageResult = await createMessage({

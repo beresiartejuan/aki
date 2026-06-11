@@ -5,6 +5,8 @@ import { buildContext } from '@/lib/context';
 import { extractMemory } from '@/lib/memory-extractor';
 import { ollama } from '@/lib/ollama';
 import { summarizeChat } from '@/lib/summarizer';
+import { AKI_TOOL_DEFINITIONS } from '@/lib/tools/aki-definitions';
+import { executeAkiTool } from '@/lib/tools/aki-executor';
 import { DEFAULT_AGENT_ID } from '../constants';
 import { loadAgentConfig } from './config';
 import type { OllamaMessage } from './types';
@@ -43,19 +45,57 @@ export async function runAgentTurnWithUser(
       { role: 'user', content: userContent },
     ];
 
-    const response = await ollama.chat({
-      model: config.model,
-      messages,
-      think: thinkingEnabled || config.thinkingConfig,
-      stream: false,
-      options: {
-        temperature: config.temperature,
-        num_predict: config.maxTokens,
-      },
-    });
+    // --- Tool loop: Ollama may call tools multiple times ---
+    let content = '';
+    let thinking: string | null = null;
+    let maxIterations = 3;
 
-    const content = response.message.content;
-    const thinking = response.message.thinking ?? null;
+    while (maxIterations > 0) {
+      maxIterations--;
+
+      const response = await ollama.chat({
+        model: config.model,
+        messages,
+        tools: AKI_TOOL_DEFINITIONS,
+        think: thinkingEnabled || config.thinkingConfig,
+        stream: false,
+        options: {
+          temperature: config.temperature,
+          num_predict: config.maxTokens,
+        },
+      });
+
+      if (response.message.thinking) {
+        thinking = (thinking ?? '') + response.message.thinking;
+      }
+
+      // Check if Ollama wants to call a tool
+      if (response.message.tool_calls && response.message.tool_calls.length > 0) {
+        messages.push(response.message as OllamaMessage);
+
+        for (const toolCall of response.message.tool_calls) {
+          const toolResult = await executeAkiTool(toolCall, chatId);
+          messages.push({
+            role: 'tool',
+            content: toolResult,
+          });
+        }
+
+        continue;
+      }
+
+      content = response.message.content ?? '';
+      messages.push({
+        role: 'assistant',
+        content,
+      });
+
+      break;
+    }
+
+    if (maxIterations === 0 && content === '') {
+      content = 'Llegué al límite de iteraciones de herramientas. Avísame si querés que continúe.';
+    }
 
     const assistantMessageResult = await createMessage({
       chatId,
@@ -63,8 +103,8 @@ export async function runAgentTurnWithUser(
       content,
       thinkingContent: thinking,
       agentId: DEFAULT_AGENT_ID,
-      inputTokens: response.prompt_eval_count ?? null,
-      outputTokens: response.eval_count ?? null,
+      inputTokens: null,
+      outputTokens: null,
       createdAt: Date.now(),
     });
 

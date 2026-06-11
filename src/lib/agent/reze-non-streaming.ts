@@ -67,7 +67,7 @@ export async function runRezeTurn(chatId: string, userId: string, userContent: s
         messages.push(response.message as OllamaMessage);
 
         for (const toolCall of response.message.tool_calls) {
-          const toolResult = await executeRezeTool(toolCall);
+          const toolResult = await executeRezeTool(toolCall, chatId);
           messages.push({
             role: 'tool',
             content: toolResult,

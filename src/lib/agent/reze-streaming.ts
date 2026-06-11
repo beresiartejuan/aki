@@ -83,7 +83,7 @@ export async function streamRezeTurn(
 
         // Execute each tool call and append results
         for (const toolCall of response.message.tool_calls) {
-          const toolResult = await executeRezeTool(toolCall);
+          const toolResult = await executeRezeTool(toolCall, chatId);
           messages.push({
             role: 'tool',
             content: toolResult,
